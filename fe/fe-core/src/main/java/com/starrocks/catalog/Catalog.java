@@ -2420,82 +2420,87 @@ public class Catalog {
                         return;
                     }
 
-                    /*
-                     * INIT -> MASTER: transferToMaster
-                     * INIT -> FOLLOWER/OBSERVER: transferToNonMaster
-                     * UNKNOWN -> MASTER: transferToMaster
-                     * UNKNOWN -> FOLLOWER/OBSERVER: transferToNonMaster
-                     * FOLLOWER -> MASTER: transferToMaster
-                     * FOLLOWER/OBSERVER -> INIT/UNKNOWN: set isReady to false
-                     */
-                    switch (feType) {
-                        case INIT: {
-                            switch (newType) {
-                                case MASTER: {
-                                    transferToMaster(feType);
-                                    break;
+                    try {
+                        /*
+                         * INIT -> MASTER: transferToMaster
+                         * INIT -> FOLLOWER/OBSERVER: transferToNonMaster
+                         * UNKNOWN -> MASTER: transferToMaster
+                         * UNKNOWN -> FOLLOWER/OBSERVER: transferToNonMaster
+                         * FOLLOWER -> MASTER: transferToMaster
+                         * FOLLOWER/OBSERVER -> INIT/UNKNOWN: set isReady to false
+                         */
+                        switch (feType) {
+                            case INIT: {
+                                switch (newType) {
+                                    case MASTER: {
+                                        transferToMaster(feType);
+                                        break;
+                                    }
+                                    case FOLLOWER:
+                                    case OBSERVER: {
+                                        transferToNonMaster(newType);
+                                        break;
+                                    }
+                                    case UNKNOWN:
+                                        break;
+                                    default:
+                                        break;
                                 }
-                                case FOLLOWER:
-                                case OBSERVER: {
+                                break;
+                            }
+                            case UNKNOWN: {
+                                switch (newType) {
+                                    case MASTER: {
+                                        transferToMaster(feType);
+                                        break;
+                                    }
+                                    case FOLLOWER:
+                                    case OBSERVER: {
+                                        transferToNonMaster(newType);
+                                        break;
+                                    }
+                                    default:
+                                        break;
+                                }
+                                break;
+                            }
+                            case FOLLOWER: {
+                                switch (newType) {
+                                    case MASTER: {
+                                        transferToMaster(feType);
+                                        break;
+                                    }
+                                    case UNKNOWN: {
+                                        transferToNonMaster(newType);
+                                        break;
+                                    }
+                                    default:
+                                        break;
+                                }
+                                break;
+                            }
+                            case OBSERVER: {
+                                if (newType == FrontendNodeType.UNKNOWN) {
                                     transferToNonMaster(newType);
-                                    break;
                                 }
-                                case UNKNOWN:
-                                    break;
-                                default:
-                                    break;
+                                break;
                             }
-                            break;
-                        }
-                        case UNKNOWN: {
-                            switch (newType) {
-                                case MASTER: {
-                                    transferToMaster(feType);
-                                    break;
-                                }
-                                case FOLLOWER:
-                                case OBSERVER: {
-                                    transferToNonMaster(newType);
-                                    break;
-                                }
-                                default:
-                                    break;
+                            case MASTER: {
+                                // exit if master changed to any other type
+                                String msg = "transfer FE type from MASTER to " + newType.name() + ". exit";
+                                LOG.error(msg);
+                                Util.stdoutWithTime(msg);
+                                System.exit(-1);
                             }
-                            break;
-                        }
-                        case FOLLOWER: {
-                            switch (newType) {
-                                case MASTER: {
-                                    transferToMaster(feType);
-                                    break;
-                                }
-                                case UNKNOWN: {
-                                    transferToNonMaster(newType);
-                                    break;
-                                }
-                                default:
-                                    break;
-                            }
-                            break;
-                        }
-                        case OBSERVER: {
-                            if (newType == FrontendNodeType.UNKNOWN) {
-                                transferToNonMaster(newType);
-                            }
-                            break;
-                        }
-                        case MASTER: {
-                            // exit if master changed to any other type
-                            String msg = "transfer FE type from MASTER to " + newType.name() + ". exit";
-                            LOG.error(msg);
-                            Util.stdoutWithTime(msg);
-                            System.exit(-1);
-                        }
-                        default:
-                            break;
-                    } // end switch formerFeType
+                            default:
+                                break;
+                        } // end switch formerFeType
 
-                    feType = newType;
+                        feType = newType;
+                    } catch (Throwable t) {
+                        LOG.error("transfer to {} failed, will exit", feType, t);
+                        System.exit(1);
+                    }
                     LOG.info("finished to transfer FE type to {}", feType);
                 }
             } // end runOneCycle
