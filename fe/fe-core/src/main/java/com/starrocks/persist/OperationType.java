@@ -202,4 +202,6 @@ public class OperationType {
 
     // workgroup 10021 ~ 10030
     public static final short OP_WORKGROUP = 10021;
+
+    public static final short OP_BENCHMARK = 10030;
 }

@@ -533,7 +533,8 @@ public class EditLog {
                     break;
                 }
                 case OperationType.OP_DROP_CLUSTER:
-                case OperationType.OP_EXPAND_CLUSTER: {
+                case OperationType.OP_EXPAND_CLUSTER:
+                case OperationType.OP_BENCHMARK: {
                     break;
                 }
                 // for compatibility
@@ -1371,5 +1372,9 @@ public class EditLog {
 
     public void logRemoveAnalyzeJob(AnalyzeJob job) {
         logEdit(OperationType.OP_REMOVE_ANALYZER_JOB, job);
+    }
+
+    public void logBenchmark(byte[] data) {
+        logEdit(OperationType.OP_BENCHMARK, out -> out.write(data));
     }
 }

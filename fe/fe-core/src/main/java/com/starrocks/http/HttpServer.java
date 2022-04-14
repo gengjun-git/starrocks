@@ -44,6 +44,7 @@ import com.starrocks.http.meta.MetaService.JournalIdAction;
 import com.starrocks.http.meta.MetaService.PutAction;
 import com.starrocks.http.meta.MetaService.RoleAction;
 import com.starrocks.http.meta.MetaService.VersionAction;
+import com.starrocks.http.rest.BDBBenchmarkAction;
 import com.starrocks.http.rest.BootstrapFinishAction;
 import com.starrocks.http.rest.CancelStreamLoad;
 import com.starrocks.http.rest.CheckDecommissionAction;
@@ -176,6 +177,7 @@ public class HttpServer {
         TableQueryPlanAction.registerAction(controller);
 
         BootstrapFinishAction.registerAction(controller);
+        BDBBenchmarkAction.registerAction(controller);
     }
 
     public void start() {
