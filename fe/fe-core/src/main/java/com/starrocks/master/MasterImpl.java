@@ -1202,7 +1202,7 @@ public class MasterImpl {
             try {
                 LOG.info("beginRemoteTxn as follower, forward it to master. Label: {}, master: {}",
                          request.getLabel(), addr.toString());
-                response = FrontendServiceProxy.call(addr, 10000,
+                response = FrontendServiceProxy.call(addr, 10000, 3,
                         client -> client.beginRemoteTxn(request));
             } catch (Exception e) {
                 LOG.warn("create thrift client failed during beginRemoteTxn, label: {}, exception: {}", request.getLabel(), e);
@@ -1255,7 +1255,7 @@ public class MasterImpl {
             try {
                 LOG.info("commitRemoteTxn as follower, forward it to master. txn_id: {}, master: {}",
                          request.getTxn_id(), addr.toString());
-                response = FrontendServiceProxy.call(addr, 10000,
+                response = FrontendServiceProxy.call(addr, 10000, 3,
                         client -> client.commitRemoteTxn(request));
             } catch (Exception e) {
                 LOG.warn("create thrift client failed during commitRemoteTxn, txn_id: {}, exception: {}", request.getTxn_id(), e);
@@ -1317,7 +1317,7 @@ public class MasterImpl {
             try {
                 LOG.info("abortRemoteTxn as follower, forward it to master. txn_id: {}, master: {}",
                          request.getTxn_id(), addr.toString());
-                response = FrontendServiceProxy.call(addr, 10000,
+                response = FrontendServiceProxy.call(addr, 10000, 3,
                         client -> client.abortRemoteTxn(request));
             } catch (Exception e) {
                 LOG.warn("create thrift client failed during abortRemoteTxn, txn_id: {}, exception: {}", request.getTxn_id(), e);
