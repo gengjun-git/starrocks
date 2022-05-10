@@ -6769,14 +6769,17 @@ public class Catalog {
 
     public Future<TStatus> refreshOtherFesTable(TNetworkAddress thriftAddress, String dbName, String tableName,
                                                 List<String> partitions) {
-        int timeout = ConnectContext.get().getSessionVariable().getQueryTimeoutS() * 1000;
+        int timeout = ConnectContext.get().getSessionVariable().getQueryTimeoutS() * 1000
+                + Config.thrift_rpc_timeout_ms;
         FutureTask<TStatus> task = new FutureTask<TStatus>(() -> {
             TRefreshTableRequest request = new TRefreshTableRequest();
             request.setDb_name(dbName);
             request.setTable_name(tableName);
             request.setPartitions(partitions);
             try {
-                TRefreshTableResponse response = FrontendServiceProxy.call(thriftAddress, timeout,
+                TRefreshTableResponse response = FrontendServiceProxy.call(thriftAddress,
+                        timeout,
+                        Config.thrift_rpc_retry_times,
                         new FrontendServiceProxy.MethodCallable<TRefreshTableResponse>() {
                             @Override
                             public TRefreshTableResponse invoke(FrontendService.Client client) throws TException {
@@ -7222,7 +7225,8 @@ public class Catalog {
         setFrontendConfig(configs);
 
         List<Frontend> allFrontends = Catalog.getCurrentCatalog().getFrontends(null);
-        int timeout = ConnectContext.get().getSessionVariable().getQueryTimeoutS() * 1000;
+        int timeout = ConnectContext.get().getSessionVariable().getQueryTimeoutS() * 1000
+                + Config.thrift_rpc_timeout_ms;
         StringBuilder errMsg = new StringBuilder();
         for (Frontend fe : allFrontends) {
             if (fe.getHost().equals(Catalog.getCurrentCatalog().getSelfNode().first)) {
@@ -7234,9 +7238,9 @@ public class Catalog {
             request.setValues(new ArrayList<>(configs.values()));
             try {
                 TSetConfigResponse response = FrontendServiceProxy
-                        .call(new TNetworkAddress(fe.getHost(),
-                                        fe.getRpcPort()),
+                        .call(new TNetworkAddress(fe.getHost(), fe.getRpcPort()),
                                 timeout,
+                                Config.thrift_rpc_retry_times,
                                 new FrontendServiceProxy.MethodCallable<TSetConfigResponse>() {
                                     @Override
                                     public TSetConfigResponse invoke(FrontendService.Client client) throws TException {

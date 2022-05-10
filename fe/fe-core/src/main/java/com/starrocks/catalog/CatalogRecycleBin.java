@@ -312,6 +312,10 @@ public class CatalogRecycleBin extends MasterDaemon implements Writable {
 
     public synchronized void replayEraseTable(long tableId) {
         RecycleTableInfo tableInfo = idToTable.remove(tableId);
+        if (tableInfo == null) {
+            LOG.warn("replay erase table[{}] failed, tableInfo is null", tableId);
+            return;
+        }
         idToRecycleTime.remove(tableId);
 
         Table table = tableInfo.getTable();

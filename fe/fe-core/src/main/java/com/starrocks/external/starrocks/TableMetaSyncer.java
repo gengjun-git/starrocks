@@ -13,9 +13,7 @@ import com.starrocks.thrift.TStatusCode;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
-
-// TableMetaSyncer is used to sync olap external 
+// TableMetaSyncer is used to sync olap external
 // table meta info from remote dorisdb cluster
 public class TableMetaSyncer {
     private static final Logger LOG = LogManager.getLogger(TableMetaSyncer.class);
