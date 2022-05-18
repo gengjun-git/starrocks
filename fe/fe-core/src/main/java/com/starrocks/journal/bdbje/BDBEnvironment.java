@@ -369,48 +369,40 @@ public class BDBEnvironment {
         }
 
         List<String> names = null;
-        int tried = 0;
-        while (true) {
+        for (int i = 0; i < RETRY_TIME; i++) {
             try {
+                if (i > 0) {
+                    Thread.sleep(1000);
+                }
                 names = replicatedEnvironment.getDatabaseNames();
                 break;
             } catch (InsufficientLogException e) {
-                LOG.warn("catch insufficient log exception. refresh and setup again.", e);
+                LOG.warn("catch insufficient log exception. refresh and setup again, retried: {}", i, e);
                 refreshLog(e);
                 close();
                 setup();
             } catch (RollbackException exception) {
-                LOG.warn("rollback exception, setup again", exception);
+                LOG.warn("rollback exception, setup again, retried: {}", i, exception);
                 close();
                 setup();
-            } catch (EnvironmentFailureException e) {
-                tried++;
-                if (tried == RETRY_TIME) {
-                    LOG.error("bdb environment failure exception.", e);
-                    System.exit(-1);
-                }
-                LOG.warn("bdb environment failure exception. will retry", e);
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e1) {
-                    e1.printStackTrace();
-                }
-            } catch (DatabaseException e) {
-                LOG.warn("catch an exception when calling getDatabaseNames", e);
-                return null;
+            } catch (Throwable t) {
+                LOG.warn("catch an exception when calling getDatabaseNames, retried: {}", i, t);
             }
         }
 
-        if (names != null) {
-            for (String name : names) {
-                // We don't count epochDB
-                if (name.equals("epochDB")) {
-                    continue;
-                }
+        if (names == null) {
+            LOG.error("get database names failed, exit");
+            System.exit(1);
+        }
 
-                long db = Long.parseLong(name);
-                ret.add(db);
+        for (String name : names) {
+            // We don't count epochDB
+            if (name.equals("epochDB")) {
+                continue;
             }
+
+            long db = Long.parseLong(name);
+            ret.add(db);
         }
 
         Collections.sort(ret);
