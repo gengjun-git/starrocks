@@ -209,8 +209,7 @@ public class BDBEnvironment {
                 break;
             } catch (InsufficientLogException insufficientLogEx) {
                 LOG.warn("insufficient exception, refresh and setup again", insufficientLogEx);
-                refreshLog(insufficientLogEx);
-                close();
+                refreshAndClose(insufficientLogEx);
             } catch (RollbackException exception) {
                 LOG.warn("rollback exception, setup again", exception);
                 close();
@@ -230,21 +229,30 @@ public class BDBEnvironment {
         }
     }
 
-    private void refreshLog(InsufficientLogException insufficientLogEx) {
-        NetworkRestore restore = new NetworkRestore();
-        NetworkRestoreConfig config = new NetworkRestoreConfig();
-        config.setRetainLogFiles(false); // delete obsolete log files.
-        // Use the members returned by insufficientLogEx.getLogProviders()
-        // to select the desired subset of members and pass the resulting
-        // list as the argument to config.setLogProviders(), if the
-        // default selection of providers is not suitable.
-        restore.execute(insufficientLogEx, config);
+    public void refreshAndSetup(InsufficientLogException insufficientLogEx) {
+        refreshAndClose(insufficientLogEx);
+        setup();
     }
 
-    public void refreshAndSetup(InsufficientLogException insufficientLogEx) {
-        refreshLog(insufficientLogEx);
-        close();
-        setup();
+    public void refreshAndClose(InsufficientLogException insufficientLogEx) {
+        try {
+            NetworkRestore restore = new NetworkRestore();
+            NetworkRestoreConfig config = new NetworkRestoreConfig();
+            config.setRetainLogFiles(false); // delete obsolete log files.
+            // Use the members returned by insufficientLogEx.getLogProviders()
+            // to select the desired subset of members and pass the resulting
+            // list as the argument to config.setLogProviders(), if the
+            // default selection of providers is not suitable.
+            restore.execute(insufficientLogEx, config);
+        } catch (Throwable t) {
+            LOG.warn("refresh bdb log from other nodes failed", t);
+
+        // No matter what error happens when refreshing logs. we should close the environment
+        // or the environment will throw the same error again and again,
+        // because the environment has cached this InsufficientLogException.
+        } finally {
+            close();
+        }
     }
 
     public ReplicationGroupAdmin getReplicationGroupAdmin() {
@@ -378,9 +386,7 @@ public class BDBEnvironment {
                 break;
             } catch (InsufficientLogException e) {
                 LOG.warn("catch insufficient log exception. refresh and setup again, retried: {}", i, e);
-                refreshLog(e);
-                close();
-                setup();
+                refreshAndSetup(e);
             } catch (RollbackException exception) {
                 LOG.warn("rollback exception, setup again, retried: {}", i, exception);
                 close();

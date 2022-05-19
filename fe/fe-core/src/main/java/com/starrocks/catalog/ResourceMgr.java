@@ -214,6 +214,11 @@ public class ResourceMgr implements Writable {
         Text.writeString(out, json);
     }
 
+    public static ResourceMgr loadResourceMgr(DataInput input, long checksum) {
+        String json = Text.readString(input);
+        return GsonUtils.GSON.fromJson(json, ResourceMgr.class);
+    }
+
     public static ResourceMgr read(DataInput in) throws IOException {
         String json = Text.readString(in);
         return GsonUtils.GSON.fromJson(json, ResourceMgr.class);
