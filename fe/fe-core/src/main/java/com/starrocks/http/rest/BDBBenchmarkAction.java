@@ -77,4 +77,8 @@ public class BDBBenchmarkAction extends RestBaseAction {
                 .append("100% latency is ").append(latencyList.get(cnt.get() - 1)).append(" ms\n");
         sendResult(request, response);
     }
+
+    public void openDatabase() {
+
+    }
 }
