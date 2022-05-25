@@ -31,6 +31,8 @@ public class BDBBenchmarkAction extends RestBaseAction {
 
     public AtomicLong key = new AtomicLong(0L);
 
+    public int dbId = 0;
+
     public BDBBenchmarkAction(ActionController controller) {
         super(controller);
     }
@@ -41,7 +43,6 @@ public class BDBBenchmarkAction extends RestBaseAction {
 
     @Override
     public void execute(BaseRequest request, BaseResponse response) {
-        CloseSafeDatabase db = openDatabase();
         final long timeout = Long.parseLong(request.getSingleParameter("timeout")) * 1000L;
         int size = Integer.parseInt(request.getSingleParameter("msg_size"));
         int concurrency = Integer.parseInt(request.getSingleParameter("concurrency"));
@@ -50,6 +51,8 @@ public class BDBBenchmarkAction extends RestBaseAction {
         AtomicInteger cnt = new AtomicInteger(0);
         CountDownLatch latch = new CountDownLatch(concurrency);
         List<Long> latencyList = Collections.synchronizedList(new ArrayList<>());
+        String dbName = "test" + (++dbId);
+        CloseSafeDatabase db = openDatabase(dbName);
         for (int i = 0; i < concurrency; i++) {
             new Thread(() -> {
                 try {
@@ -74,6 +77,8 @@ public class BDBBenchmarkAction extends RestBaseAction {
             ie.printStackTrace();
         }
 
+        removeDatabase(dbName);
+
         Collections.sort(latencyList);
         long sum = latencyList.stream().mapToLong(Long::longValue).sum();
 
@@ -95,9 +100,14 @@ public class BDBBenchmarkAction extends RestBaseAction {
         sendResult(request, response);
     }
 
-    public CloseSafeDatabase openDatabase() {
+    public CloseSafeDatabase openDatabase(String dbName) {
         BDBEnvironment env = ((BDBJEJournal) Catalog.getCurrentCatalog().getEditLog().getJournal()).getBdbEnvironment();
-        return env.openDatabase("test");
+        return env.openDatabase(dbName);
+    }
+
+    public void removeDatabase(String dbName) {
+        BDBEnvironment env = ((BDBJEJournal) Catalog.getCurrentCatalog().getEditLog().getJournal()).getBdbEnvironment();
+        env.removeDatabase(dbName);
     }
 
     public boolean write(CloseSafeDatabase db, byte[] data) {

@@ -369,7 +369,7 @@ public class BDBEnvironment {
         if (names != null) {
             for (String name : names) {
                 // We don't count epochDB
-                if (name.equals("epochDB") || name.equals("test")) {
+                if (name.equals("epochDB") || name.startsWith("test")) {
                     continue;
                 }
 
