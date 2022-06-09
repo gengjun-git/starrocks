@@ -7,7 +7,6 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.OperationStatus;
 import com.starrocks.catalog.Catalog;
-import com.starrocks.common.util.TimeUtils;
 import com.starrocks.http.ActionController;
 import com.starrocks.http.BaseRequest;
 import com.starrocks.http.BaseResponse;
@@ -57,11 +56,7 @@ public class BDBBenchmarkAction extends RestBaseAction {
             new Thread(() -> {
                 try {
                     while (System.currentTimeMillis() - startTime < timeout) {
-                        long startT = System.currentTimeMillis();
-                        if (write(db, data)) {
-                            latencyList.add(System.currentTimeMillis() - startT);
-                            cnt.getAndIncrement();
-                        }
+                        write(db, data);
                     }
                 } catch (Throwable t) {
                     t.printStackTrace();
@@ -79,24 +74,6 @@ public class BDBBenchmarkAction extends RestBaseAction {
 
         removeDatabase(dbName);
 
-        Collections.sort(latencyList);
-        long sum = latencyList.stream().mapToLong(Long::longValue).sum();
-
-        response.getContent().append("write ")
-                .append(cnt.get()).append(" logs(size: ").append(size).append(" bytes) in ")
-                .append(timeout / 1000L).append(" seconds, concurrency is ").append(concurrency)
-                .append(" start time is ").append(TimeUtils.longToTimeString(startTime)).append("\n")
-                .append("qps is ").append(((double) (cnt.get())) / timeout * 1000).append("\n")
-                .append("mean latency is ").append(((double) sum) / cnt.get()).append(" ms\n")
-                .append("50% latency is ").append(latencyList.get((int) (cnt.get() * 0.5))).append(" ms\n")
-                .append("66% latency is ").append(latencyList.get((int) (cnt.get() * 0.66))).append(" ms\n")
-                .append("75% latency is ").append(latencyList.get((int) (cnt.get() * 0.75))).append(" ms\n")
-                .append("80% latency is ").append(latencyList.get((int) (cnt.get() * 0.8))).append(" ms\n")
-                .append("90% latency is ").append(latencyList.get((int) (cnt.get() * 0.9))).append(" ms\n")
-                .append("95% latency is ").append(latencyList.get((int) (cnt.get() * 0.95))).append(" ms\n")
-                .append("98% latency is ").append(latencyList.get((int) (cnt.get() * 0.98))).append(" ms\n")
-                .append("99% latency is ").append(latencyList.get((int) (cnt.get() * 0.98))).append(" ms\n")
-                .append("100% latency is ").append(latencyList.get(cnt.get() - 1)).append(" ms\n");
         sendResult(request, response);
     }
 
