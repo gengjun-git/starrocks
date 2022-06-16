@@ -852,9 +852,6 @@ public class EditLog {
 
         long start = System.currentTimeMillis();
 
-        Preconditions.checkState(Catalog.getCurrentCatalog().isMaster(),
-                "non-master fe can not write bdb log");
-
         try {
             journal.write(op, writable);
         } catch (Exception e) {
