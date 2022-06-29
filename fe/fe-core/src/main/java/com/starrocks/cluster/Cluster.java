@@ -28,6 +28,7 @@ import com.starrocks.catalog.InfoSchemaDb;
 import com.starrocks.common.io.Text;
 import com.starrocks.common.io.Writable;
 import com.starrocks.persist.LinkDbInfo;
+import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.system.SystemInfoService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -159,6 +160,9 @@ public class Cluster implements Writable {
         for (Long id : backendIdSet) {
             out.writeLong(id);
         }
+
+        dbIds.addAll(GlobalStateMgr.getCurrentState().getDbIds());
+        dbNames.addAll(GlobalStateMgr.getCurrentState().getDbNames());
 
         int dbCount = dbIds.size();
         if (dbNames.contains(ClusterNamespace.getFullName(this.name, InfoSchemaDb.DATABASE_NAME))) {
