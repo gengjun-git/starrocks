@@ -157,7 +157,7 @@ public class BDBEnvironment {
         environmentConfig.setCachePercent(MEMORY_CACHE_PERCENT);
         environmentConfig.setLockTimeout(Config.bdbje_lock_timeout_second, TimeUnit.SECONDS);
         environmentConfig.setConfigParam(EnvironmentConfig.FILE_LOGGING_LEVEL, Config.bdbje_log_level);
-        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_THREADS,"4");
+        environmentConfig.setConfigParam(EnvironmentConfig.CLEANER_THREADS, "4");
         if (isElectable) {
             Durability durability = new Durability(getSyncPolicy(Config.master_sync_policy),
                     getSyncPolicy(Config.replica_sync_policy), getAckPolicy(Config.replica_ack_policy));
