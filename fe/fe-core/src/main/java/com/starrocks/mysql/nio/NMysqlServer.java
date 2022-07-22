@@ -33,6 +33,7 @@ import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
 import org.xnio.ssl.JsseXnioSsl;
+import org.xnio.ssl.SslConnection;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -48,7 +49,7 @@ public class NMysqlServer extends MysqlServer {
 
     private AcceptListener acceptListener;
 
-    private AcceptingChannel<StreamConnection> server;
+    private AcceptingChannel<SslConnection> server;
 
     // default task service.
     private ExecutorService taskService = ThreadPoolManager
@@ -71,15 +72,12 @@ public class NMysqlServer extends MysqlServer {
         try {
             JsseXnioSsl ssl = new JsseXnioSsl(Xnio.getInstance(),
                     OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
-            ssl.createSslConnectionServer(xnioWorker, new InetSocketAddress(port), acceptListener, OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
-            server = xnioWorker.createStreamConnectionServer(new InetSocketAddress(port),
-                    acceptListener,
-                    OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
+            server = ssl.createSslConnectionServer(xnioWorker, new InetSocketAddress(port), acceptListener, OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
             server.resumeAccepts();
             running = true;
             LOG.info("Open mysql server success on {}", port);
             return true;
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOG.warn("Open MySQL network service failed.", e);
             return false;
         }

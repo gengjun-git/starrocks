@@ -30,13 +30,14 @@ import org.apache.logging.log4j.Logger;
 import org.xnio.ChannelListener;
 import org.xnio.StreamConnection;
 import org.xnio.channels.AcceptingChannel;
+import org.xnio.ssl.SslConnection;
 
 import java.io.IOException;
 
 /**
  * listener for accept mysql connections.
  */
-public class AcceptListener implements ChannelListener<AcceptingChannel<StreamConnection>> {
+public class AcceptListener implements ChannelListener<AcceptingChannel<SslConnection>> {
     private static final Logger LOG = LogManager.getLogger(AcceptListener.class);
     private ConnectScheduler connectScheduler;
 
@@ -45,7 +46,7 @@ public class AcceptListener implements ChannelListener<AcceptingChannel<StreamCo
     }
 
     @Override
-    public void handleEvent(AcceptingChannel<StreamConnection> channel) {
+    public void handleEvent(AcceptingChannel<SslConnection> channel) {
         try {
             StreamConnection connection = channel.accept();
             if (connection == null) {
