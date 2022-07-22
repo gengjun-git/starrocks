@@ -32,6 +32,7 @@ import org.xnio.StreamConnection;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
+import org.xnio.ssl.JsseXnioSsl;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -68,6 +69,9 @@ public class NMysqlServer extends MysqlServer {
     @Override
     public boolean start() {
         try {
+            JsseXnioSsl ssl = new JsseXnioSsl(Xnio.getInstance(),
+                    OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
+            ssl.createSslConnectionServer(xnioWorker, new InetSocketAddress(port), acceptListener, OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
             server = xnioWorker.createStreamConnectionServer(new InetSocketAddress(port),
                     acceptListener,
                     OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
