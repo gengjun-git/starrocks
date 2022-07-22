@@ -28,7 +28,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.xnio.OptionMap;
 import org.xnio.Options;
-import org.xnio.StreamConnection;
 import org.xnio.Xnio;
 import org.xnio.XnioWorker;
 import org.xnio.channels.AcceptingChannel;
@@ -72,7 +71,9 @@ public class NMysqlServer extends MysqlServer {
         try {
             JsseXnioSsl ssl = new JsseXnioSsl(Xnio.getInstance(),
                     OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
-            server = ssl.createSslConnectionServer(xnioWorker, new InetSocketAddress(port), acceptListener, OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
+            server = ssl.createSslConnectionServer(xnioWorker, new InetSocketAddress(port),
+                    acceptListener,
+                    OptionMap.create(Options.TCP_NODELAY, true, Options.BACKLOG, Config.mysql_nio_backlog_num));
             server.resumeAccepts();
             running = true;
             LOG.info("Open mysql server success on {}", port);
