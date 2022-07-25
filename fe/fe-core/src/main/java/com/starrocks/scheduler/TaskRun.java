@@ -7,8 +7,6 @@ import com.starrocks.analysis.StringLiteral;
 import com.starrocks.common.Config;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.QueryState;
-import com.starrocks.qe.SessionVariable;
-import com.starrocks.qe.VariableMgr;
 import com.starrocks.scheduler.persist.TaskRunStatus;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -87,14 +85,12 @@ public class TaskRun {
         newCtx.setCurrentUserIdentity(ctx.getCurrentUserIdentity());
         newCtx.getState().reset();
         newCtx.setQueryId(UUID.fromString(status.getQueryId()));
-        SessionVariable sessionVariable = (SessionVariable) ctx.getSessionVariable().clone();
+        newCtx.resetSessionVariable();
         if (properties != null) {
             for (String key : properties.keySet()) {
-                VariableMgr.setVar(sessionVariable, new SetVar(key, new StringLiteral(properties.get(key))),
-                        true);
+                newCtx.modifySessionVariable(new SetVar(key, new StringLiteral(properties.get(key))), true);
             }
         }
-        newCtx.setSessionVariable(sessionVariable);
         taskRunContext.setCtx(newCtx);
         taskRunContext.setRemoteIp(ctx.getMysqlChannel().getRemoteHostPortString());
         processor.processTaskRun(taskRunContext);
