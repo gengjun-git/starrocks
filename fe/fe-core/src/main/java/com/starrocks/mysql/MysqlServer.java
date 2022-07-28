@@ -30,10 +30,13 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
 
 // MySQL protocol network service
 public class MysqlServer {
@@ -63,8 +66,12 @@ public class MysqlServer {
             return false;
         }
 
+
         // open server socket
         try {
+            SSLServerSocketFactory ssf = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+            SSLServerSocket serverSocket = (SSLServerSocket)ssf.createServerSocket(port);
+
             serverChannel = ServerSocketChannel.open();
             serverChannel.socket().bind(new InetSocketAddress("0.0.0.0", port), 2048);
             serverChannel.configureBlocking(true);
