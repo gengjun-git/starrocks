@@ -31,6 +31,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.Future;
@@ -44,7 +45,7 @@ public class MysqlServer {
 
     protected int port;
     protected volatile boolean running;
-    private ServerSocketChannel serverChannel = null;
+    private SSLServerSocket serverSocket = null;
     private ConnectScheduler scheduler = null;
     // used to accept connect request from client
     private ThreadPoolExecutor listener;
@@ -70,11 +71,7 @@ public class MysqlServer {
         // open server socket
         try {
             SSLServerSocketFactory ssf = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
-            SSLServerSocket serverSocket = (SSLServerSocket)ssf.createServerSocket(port);
-
-            serverChannel = ServerSocketChannel.open();
-            serverChannel.socket().bind(new InetSocketAddress("0.0.0.0", port), 2048);
-            serverChannel.configureBlocking(true);
+            serverSocket = (SSLServerSocket)ssf.createServerSocket(port);
         } catch (IOException e) {
             LOG.warn("Open MySQL network service failed.", e);
             return false;
@@ -93,7 +90,7 @@ public class MysqlServer {
             running = false;
             // close server channel, make accept throw exception
             try {
-                serverChannel.close();
+                serverSocket.close();
             } catch (IOException e) {
                 LOG.warn("close server channel failed.", e);
             }
@@ -112,11 +109,11 @@ public class MysqlServer {
     private class Listener implements Runnable {
         @Override
         public void run() {
-            while (running && serverChannel.isOpen()) {
-                SocketChannel clientChannel;
+            while (running && !serverSocket.isClosed()) {
+                Socket socket;
                 try {
-                    clientChannel = serverChannel.accept();
-                    if (clientChannel == null) {
+                    socket = serverSocket.accept();
+                    if (socket == null) {
                         continue;
                     }
                     // submit this context to scheduler
@@ -124,7 +121,7 @@ public class MysqlServer {
                     // Set globalStateMgr here.
                     context.setGlobalStateMgr(GlobalStateMgr.getCurrentState());
                     if (!scheduler.submit(context)) {
-                        LOG.warn("Submit one connect request failed. Client=" + clientChannel.toString());
+                        LOG.warn("Submit one connect request failed. Client=" + socket.toString());
                         // clear up context
                         context.cleanup();
                     }

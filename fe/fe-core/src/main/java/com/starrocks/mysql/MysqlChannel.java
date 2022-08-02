@@ -26,6 +26,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
@@ -46,7 +47,7 @@ public class MysqlChannel {
     // next sequence id to receive or send
     protected int sequenceId;
     // channel connected with client
-    protected SocketChannel channel;
+    protected Socket socket;
     // used to receive/send header, avoiding new this many time.
     protected ByteBuffer headerByteBuffer = ByteBuffer.allocate(PACKET_HEADER_LEN);
     // default packet byte buffer for most packet
@@ -64,25 +65,19 @@ public class MysqlChannel {
         this.remoteIp = "";
     }
 
-    public MysqlChannel(SocketChannel channel) {
+    public MysqlChannel(Socket socket) {
         this.sequenceId = 0;
-        this.channel = channel;
+        this.socket = socket;
         this.isSend = false;
         this.remoteHostPortString = "";
         this.remoteIp = "";
 
-        if (channel != null) {
+        if (socket != null) {
             try {
-                if (channel.getRemoteAddress() instanceof InetSocketAddress) {
-                    InetSocketAddress address = (InetSocketAddress) channel.getRemoteAddress();
-                    // avoid calling getHostName() which may trigger a name service reverse lookup
-                    remoteHostPortString = address.getHostString() + ":" + address.getPort();
-                    remoteIp = address.getAddress().getHostAddress();
-                } else {
-                    // Reach here, what's it?
-                    remoteHostPortString = channel.getRemoteAddress().toString();
-                    remoteIp = channel.getRemoteAddress().toString();
-                }
+                InetSocketAddress address = (InetSocketAddress) socket.getRemoteSocketAddress();
+                // avoid calling getHostName() which may trigger a name service reverse lookup
+                remoteHostPortString = address.getHostString() + ":" + address.getPort();
+                remoteIp = address.getAddress().getHostAddress();
             } catch (Exception e) {
                 LOG.warn("get remote host string failed: ", e);
             }
@@ -117,7 +112,7 @@ public class MysqlChannel {
     // Close channel
     public void close() {
         try {
-            channel.close();
+            socket.close();
         } catch (IOException e) {
             LOG.warn("Close channel exception, ignore.");
         }
@@ -125,14 +120,16 @@ public class MysqlChannel {
 
     protected int readAll(ByteBuffer dstBuf) throws IOException {
         int readLen = 0;
-        while (dstBuf.remaining() != 0) {
-            int ret = channel.read(dstBuf);
+        byte[] bytes = new byte[dstBuf.capacity()];
+        while (readLen < bytes.length) {
+            int ret = socket.getInputStream().read(bytes, readLen, bytes.length - readLen);
             // return -1 when remote peer close the channel
             if (ret == -1) {
                 return readLen;
             }
             readLen += ret;
         }
+        dstBuf.put(bytes);
         return readLen;
     }
 
@@ -190,13 +187,10 @@ public class MysqlChannel {
     }
 
     protected void realNetSend(ByteBuffer buffer) throws IOException {
-        long bufLen = buffer.remaining();
-        long writeLen = channel.write(buffer);
-        if (bufLen != writeLen) {
-            throw new IOException("Write mysql packet failed.[write=" + writeLen
-                    + ", needToWrite=" + bufLen + "]");
-        }
-        channel.write(buffer);
+        int bufLen = buffer.remaining();
+        byte[] bytes = new byte[bufLen];
+        buffer.get(bytes);
+        socket.getOutputStream().write(bytes);
         isSend = true;
     }
 

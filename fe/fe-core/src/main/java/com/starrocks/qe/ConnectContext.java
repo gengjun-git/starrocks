@@ -42,6 +42,7 @@ import com.starrocks.thrift.TUniqueId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.net.Socket;
 import java.nio.channels.SocketChannel;
 import java.util.List;
 import java.util.Set;
@@ -176,7 +177,7 @@ public class ConnectContext {
         plannerProfile.init(this);
     }
 
-    public ConnectContext(SocketChannel channel) {
+    public ConnectContext(Socket socket) {
         state = new QueryState();
         returnRows = 0;
         serverCapability = MysqlCapability.DEFAULT_CAPABILITY;
@@ -185,8 +186,8 @@ public class ConnectContext {
         serializer = MysqlSerializer.newInstance();
         sessionVariable = VariableMgr.newSessionVariable();
         command = MysqlCommand.COM_SLEEP;
-        if (channel != null) {
-            remoteIP = mysqlChannel.getRemoteIp();
+        if (socket != null) {
+            remoteIP = socket.getInetAddress().getHostAddress();
         }
         queryDetail = null;
         dumpInfo = new QueryDumpInfo(sessionVariable);
