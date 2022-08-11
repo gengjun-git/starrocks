@@ -264,7 +264,9 @@ public enum ErrorCode {
     ERR_BAD_CATALOG_AND_DB_ERROR(5080, new byte[] {'4', '2', '0', '0', '0'},
             "Unknown catalog.db '%s'"),
     ERR_UNSUPPORTED_SQL_PATTERN(5081, new byte[] {'4', '2', '0', '0', '0'},
-            "Only support like 'function_pattern' syntax.");
+            "Only support like 'function_pattern' syntax."),
+    ERR_CHANGE_TO_SSL_CONNECTION_FAILED(5083, new byte[] {'4', '2', '0', '0', '0'},
+            "Change to ssl connection failed");
 
     ErrorCode(int code, byte[] sqlState, String errorMsg) {
         this.code = code;
