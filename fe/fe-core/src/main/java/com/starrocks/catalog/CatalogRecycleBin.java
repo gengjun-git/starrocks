@@ -321,6 +321,8 @@ public class CatalogRecycleBin extends LeaderDaemon implements Writable {
                 removeRecycleMarkers(entry.getKey());
 
                 GlobalStateMgr.getCurrentState().onEraseDatabase(db.getId());
+                expireTableOfDb(db.getId());
+                expirePartitionOfDb(db.getId());
                 LOG.info("erase database[{}-{}], because db with the same name db is recycled", db.getId(), dbName);
             }
         }
@@ -380,8 +382,44 @@ public class CatalogRecycleBin extends LeaderDaemon implements Writable {
         nameToTableInfoDBLevel.remove(tableName);
         idToTableInfo.row(dbId).remove(table.getId());
         removeRecycleMarkers(table.getId());
+        expirePartitionOfTable(dbId, table.getId());
         LOG.info("erase table[{}-{}], because table with the same name is recycled", table.getId(), tableName);
         return table;
+    }
+
+    private synchronized void expirePartitionOfTable(long dbId, long tableId) {
+        for (Map.Entry<Long, RecyclePartitionInfo> entry : idToPartition.entrySet()) {
+            RecyclePartitionInfo partitionInfo = entry.getValue();
+            long partitionId = entry.getKey();
+            if (partitionInfo.dbId == dbId && partitionInfo.tableId == tableId &&
+                    idToRecycleTime.containsKey(partitionId)) {
+                // set to -1, so that this partition will be erased ASAP
+                idToRecycleTime.put(partitionId, -1L);
+            }
+        }
+    }
+
+    private synchronized void expirePartitionOfDb(long dbId) {
+        for (Map.Entry<Long, RecyclePartitionInfo> entry : idToPartition.entrySet()) {
+            RecyclePartitionInfo partitionInfo = entry.getValue();
+            long partitionId = entry.getKey();
+            if (partitionInfo.dbId == dbId && idToRecycleTime.containsKey(partitionId)) {
+                // set to -1, so that this partition will be erased ASAP
+                idToRecycleTime.put(partitionId, -1L);
+            }
+        }
+    }
+
+    private synchronized void expireTableOfDb(long dbId) {
+        Map<Long, RecycleTableInfo> tables = idToTableInfo.row(dbId);
+        if (tables != null) {
+            for (long tableId : tables.keySet()) {
+                if (idToRecycleTime.containsKey(tableId)) {
+                    // set to -1, so that this table will be erased ASAP
+                    idToRecycleTime.put(tableId, -1L);
+                }
+            }
+        }
     }
 
     public synchronized void replayEraseTable(long tableId) {
