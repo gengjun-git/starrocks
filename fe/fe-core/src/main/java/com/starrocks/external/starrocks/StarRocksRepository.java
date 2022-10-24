@@ -70,7 +70,7 @@ public class StarRocksRepository extends MasterDaemon {
 
     @Override
     protected void runAfterCatalogReady() {
-        if (Catalog.getCurrentCatalog().getRole() != FrontendNodeType.FOLLOWER) {
+        if (!Catalog.getCurrentCatalog().isMaster()) {
             return;
         }
         for (ExternalOlapTable table : srTables.values()) {
