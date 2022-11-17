@@ -142,7 +142,11 @@ public class ThriftServer {
         serverThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                server.serve();
+                try {
+                    server.serve();
+                } catch (Throwable t) {
+                    LOG.error("thrift server exit", t);
+                }
             }
         });
         serverThread.setName("thrift-server-accept");

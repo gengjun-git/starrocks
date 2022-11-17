@@ -31,6 +31,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
+import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -56,8 +57,8 @@ public class GenericPool<VALUE extends org.apache.thrift.TServiceClient> {
         try {
             object.getOutputProtocol().getTransport().open();
             // transport.open() doesn't set timeout, Maybe the timeoutMs change.
-            TSocket socket = (TSocket) object.getOutputProtocol().getTransport();
-            socket.setTimeout(timeoutMs);
+            // TSocket socket = (TSocket) object.getOutputProtocol().getTransport();
+            // socket.setTimeout(timeoutMs);
         } catch (TTransportException e) {
             ok = false;
         }
@@ -90,8 +91,8 @@ public class GenericPool<VALUE extends org.apache.thrift.TServiceClient> {
 
     public VALUE borrowObject(TNetworkAddress address, int timeoutMs) throws Exception {
         VALUE value = pool.borrowObject(address);
-        TSocket socket = (TSocket) (value.getOutputProtocol().getTransport());
-        socket.setTimeout(timeoutMs);
+        // TSocket socket = (TSocket) (value.getOutputProtocol().getTransport());
+        // socket.setTimeout(timeoutMs);
         return value;
     }
 
@@ -129,7 +130,7 @@ public class GenericPool<VALUE extends org.apache.thrift.TServiceClient> {
             }
             TTransport transport = new TSocket(key.hostname, key.port, timeoutMs);
             transport.open();
-            TProtocol protocol = new TBinaryProtocol(transport);
+            TProtocol protocol = new TBinaryProtocol(new TFramedTransport(transport));
             VALUE client = (VALUE) newInstance(className, protocol);
             return client;
         }
