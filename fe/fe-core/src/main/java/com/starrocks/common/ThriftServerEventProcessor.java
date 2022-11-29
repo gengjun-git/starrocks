@@ -28,7 +28,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.server.ServerContext;
 import org.apache.thrift.server.TServerEventHandler;
-import org.apache.thrift.transport.TFramedTransport;
+import org.apache.thrift.transport.TNonblockingSocket;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 
@@ -64,9 +64,10 @@ public class ThriftServerEventProcessor implements TServerEventHandler {
             switch (thriftServer.getType()) {
                 case THREADED:
                     // class org.apache.thrift.transport.TFramedTransport
-                    Preconditions.checkState(transport instanceof TFramedTransport);
-                    TFramedTransport framedTransport = (TFramedTransport) transport;
-                    socketAddress = framedTransport.getClientAddress();
+                    LOG.info("transport class is {}", transport.getClass());
+                    Preconditions.checkState(transport instanceof TNonblockingSocket);
+                    TNonblockingSocket socket = (TNonblockingSocket) transport;
+                    socketAddress = socket.getSocketChannel().getRemoteAddress();
                     break;
                 case SIMPLE:
                 case THREAD_POOL:

@@ -37,4 +37,14 @@ public class ThriftServerContext implements ServerContext {
     public TNetworkAddress getClient() {
         return client;
     }
+
+    @Override
+    public <T> T unwrap(Class<T> iface) {
+        return null;
+    }
+
+    @Override
+    public boolean isWrapperFor(Class<?> iface) {
+        return false;
+    }
 }

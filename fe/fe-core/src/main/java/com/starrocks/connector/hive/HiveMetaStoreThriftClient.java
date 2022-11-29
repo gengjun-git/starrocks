@@ -142,7 +142,6 @@ import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TCompactProtocol;
 import org.apache.thrift.protocol.TProtocol;
-import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -406,7 +405,6 @@ public class HiveMetaStoreThriftClient implements IMetaStoreClient, AutoCloseabl
         TTransportException tte = null;
         boolean useSSL = MetastoreConf.getBoolVar(conf, ConfVars.USE_SSL);
         boolean useSasl = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_SASL);
-        boolean useFramedTransport = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_FRAMED_TRANSPORT);
         boolean useCompactProtocol = MetastoreConf.getBoolVar(conf, ConfVars.USE_THRIFT_COMPACT_PROTOCOL);
         int clientSocketTimeout = (int) MetastoreConf.getTimeVar(conf,
                 ConfVars.CLIENT_SOCKET_TIMEOUT, TimeUnit.MILLISECONDS);
@@ -439,7 +437,11 @@ public class HiveMetaStoreThriftClient implements IMetaStoreClient, AutoCloseabl
                             throw new MetaException(e.toString());
                         }
                     } else {
-                        transport = new TSocket(store.getHost(), store.getPort(), clientSocketTimeout);
+                        try {
+                            transport = new TSocket(store.getHost(), store.getPort(), clientSocketTimeout);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
 
                     if (useSasl) {
@@ -476,10 +478,6 @@ public class HiveMetaStoreThriftClient implements IMetaStoreClient, AutoCloseabl
                         } catch (IOException ioe) {
                             LOG.error("Couldn't create client transport", ioe);
                             throw new MetaException(ioe.toString());
-                        }
-                    } else {
-                        if (useFramedTransport) {
-                            transport = new TFramedTransport(transport);
                         }
                     }
 

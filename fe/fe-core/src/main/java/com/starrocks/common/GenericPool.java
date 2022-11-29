@@ -31,7 +31,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TProtocol;
-import org.apache.thrift.transport.TFramedTransport;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
@@ -130,7 +129,7 @@ public class GenericPool<VALUE extends org.apache.thrift.TServiceClient> {
             }
             TTransport transport = new TSocket(key.hostname, key.port, timeoutMs);
             transport.open();
-            TProtocol protocol = new TBinaryProtocol(new TFramedTransport(transport));
+            TProtocol protocol = new TBinaryProtocol(transport);
             VALUE client = (VALUE) newInstance(className, protocol);
             return client;
         }
