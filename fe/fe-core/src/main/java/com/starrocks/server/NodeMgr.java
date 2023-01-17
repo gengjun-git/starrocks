@@ -684,7 +684,7 @@ public class NodeMgr {
             throw new DdlException("Failed to acquire globalStateMgr lock. Try again");
         }
         try {
-            Frontend fe = getFeByHost(host);
+            Frontend fe = getFeByIpOrFqdn(host);
             if (null != fe) {
                 throw new DdlException("frontend use host [" + host + "] already exists ");
             }
@@ -884,7 +884,7 @@ public class NodeMgr {
         return null;
     }
 
-    public Frontend getFeByHost(String ipOrFqdn) {
+    public Frontend getFeByIpOrFqdn(String ipOrFqdn) {
         // This host could be Ip, or fqdn
         Pair<String, String> targetPair;
         try {
@@ -907,6 +907,15 @@ public class NodeMgr {
             }
             // target, cur has same fqdn and both of them are not equal ""
             if (targetPair.second.equals(curPair.second) && !curPair.second.equals("")) {
+                return fe;
+            }
+        }
+        return null;
+    }
+
+    public Frontend getFeByHost(String host) {
+        for (Frontend fe : frontends.values()) {
+            if (fe.getHost().equals(host)) {
                 return fe;
             }
         }

@@ -2020,8 +2020,8 @@ public class GlobalStateMgr {
         return nodeMgr.checkFeExist(host, port);
     }
 
-    public Frontend getFeByHost(String host) {
-        return nodeMgr.getFeByHost(host);
+    public Frontend getFeByIpOrFqdn(String host) {
+        return nodeMgr.getFeByIpOrFqdn(host);
     }
 
     public Frontend getFeByName(String name) {

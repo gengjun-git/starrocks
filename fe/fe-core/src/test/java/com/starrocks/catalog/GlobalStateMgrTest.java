@@ -235,9 +235,9 @@ public class GlobalStateMgrTest {
         };
 
         GlobalStateMgr globalStateMgr = mockGlobalStateMgr();
-        Frontend testFeIp = globalStateMgr.getFeByHost("127.0.0.1");
+        Frontend testFeIp = globalStateMgr.getFeByIpOrFqdn("127.0.0.1");
         Assert.assertNotNull(testFeIp);
-        Frontend testFeHost = globalStateMgr.getFeByHost("sandbox");
+        Frontend testFeHost = globalStateMgr.getFeByIpOrFqdn("sandbox");
         Assert.assertNotNull(testFeHost);
     }
 

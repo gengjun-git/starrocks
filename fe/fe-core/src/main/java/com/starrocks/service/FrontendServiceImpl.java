@@ -987,7 +987,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
     public TMasterOpResult forward(TMasterOpRequest params) throws TException {
         TNetworkAddress clientAddr = getClientAddr();
         if (clientAddr != null) {
-            Frontend fe = GlobalStateMgr.getCurrentState().getFeByHost(clientAddr.getHostname());
+            Frontend fe = GlobalStateMgr.getCurrentState().getFeByIpOrFqdn(clientAddr.getHostname());
             if (fe == null) {
                 LOG.warn("reject request from invalid host. client: {}", clientAddr);
                 throw new TException("request from invalid host was rejected.");
