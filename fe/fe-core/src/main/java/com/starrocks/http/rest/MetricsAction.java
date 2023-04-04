@@ -34,6 +34,7 @@
 
 package com.starrocks.http.rest;
 
+import com.aliyun.credentials.RamRoleArnCredential;
 import com.google.common.base.Strings;
 import com.starrocks.common.DdlException;
 import com.starrocks.http.ActionController;
@@ -51,6 +52,7 @@ import com.starrocks.sql.ast.UserIdentity;
 import io.netty.handler.codec.http.HttpMethod;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
+import org.apache.lucene.util.RamUsageEstimator;
 
 //fehost:port/metrics
 //fehost:port/metrics?type=core
@@ -107,6 +109,9 @@ public class MetricsAction extends RestBaseAction {
                 LOG.warn("`Admin_priv` is needed to view the table-level metrics.");
             }
         }
+
+        System.out.println("globalState size is " + RamUsageEstimator.sizeOf(GlobalStateMgr.getCurrentState()));
+
         response.setContentType("text/plain");
         response.getContent().append(MetricRepo.getMetric(visitor, collectTableMetrics, minifyTableMetrics));
         sendResult(request, response);
