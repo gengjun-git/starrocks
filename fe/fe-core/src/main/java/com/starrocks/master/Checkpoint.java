@@ -60,6 +60,10 @@ public class Checkpoint extends MasterDaemon {
 
     @Override
     protected void runAfterCatalogReady() {
+        if (Config.disable_checkpoint) {
+            return;
+        }
+
         long imageVersion = 0;
         long checkPointVersion = 0;
         Storage storage = null;
