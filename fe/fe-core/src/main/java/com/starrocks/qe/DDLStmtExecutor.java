@@ -188,20 +188,6 @@ public class DDLStmtExecutor {
 
         @Override
         public ShowResultSet visitDropDbStatement(DropDbStmt stmt, ConnectContext context) {
-            ErrorReport.wrapWithRuntimeException(() -> {
-                String catalogName = stmt.getCatalogName();
-                String dbName = stmt.getDbName();
-                boolean isForceDrop = stmt.isForceDrop();
-                try {
-                    context.getGlobalStateMgr().getMetadataMgr().dropDb(catalogName, dbName, isForceDrop);
-                } catch (MetaNotFoundException e) {
-                    if (stmt.isSetIfExists()) {
-                        LOG.info("drop database[{}] which does not exist", dbName);
-                    } else {
-                        ErrorReport.reportDdlException(ErrorCode.ERR_DB_DROP_EXISTS, dbName);
-                    }
-                }
-            });
             return null;
         }
 
