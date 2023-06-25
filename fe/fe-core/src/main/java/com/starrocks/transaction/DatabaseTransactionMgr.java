@@ -1313,9 +1313,17 @@ public class DatabaseTransactionMgr {
         for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTable(tableId);
+            if (table == null) {
+                LOG.warn("txn table is null: {}", tableId);
+                return;
+            }
             for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
                 long partitionId = partitionCommitInfo.getPartitionId();
                 Partition partition = table.getPartition(partitionId);
+                if (partition == null) {
+                    LOG.warn("txn partition is null: {}", partitionId);
+                    return;
+                }
                 List<MaterializedIndex> allIndices =
                         partition.getMaterializedIndices(MaterializedIndex.IndexExtState.ALL);
                 for (MaterializedIndex index : allIndices) {
@@ -1349,6 +1357,10 @@ public class DatabaseTransactionMgr {
         for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTable(tableId);
+            if (table == null) {
+                LOG.warn("txn table is null: {}", tableCommitInfo.getTableId());
+                return false;
+            }
             List<String> validDictCacheColumns = Lists.newArrayList();
             long maxPartitionVersionTime = -1;
             for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
@@ -1356,6 +1368,10 @@ public class DatabaseTransactionMgr {
                 long newCommitVersion = partitionCommitInfo.getVersion();
                 long newCommitVersionHash = partitionCommitInfo.getVersionHash();
                 Partition partition = table.getPartition(partitionId);
+                if (partition == null) {
+                    LOG.warn("txn partition is null: {}", partitionCommitInfo.getPartitionId());
+                    return false;
+                }
                 List<MaterializedIndex> allIndices =
                         partition.getMaterializedIndices(MaterializedIndex.IndexExtState.ALL);
                 for (MaterializedIndex index : allIndices) {

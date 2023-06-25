@@ -1309,4 +1309,7 @@ public class Config extends ConfigBase {
      */
     @ConfField(mutable = true)
     public static long min_routine_load_lag_for_metrics = 10000;
+
+    @ConfField(mutable = true)
+    public static boolean enable_checkpoint = false;
 }

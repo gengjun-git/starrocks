@@ -295,6 +295,10 @@ public class CatalogRecycleBin extends MasterDaemon implements Writable {
 
     public synchronized void replayEraseTable(long tableId) {
         RecycleTableInfo tableInfo = idToTable.remove(tableId);
+        if (tableInfo == null) {
+            LOG.info("erase table: {} is null", tableId);
+            return;
+        }
         idToRecycleTime.remove(tableId);
 
         Table table = tableInfo.getTable();
@@ -349,6 +353,10 @@ public class CatalogRecycleBin extends MasterDaemon implements Writable {
 
     public synchronized void replayErasePartition(long partitionId) {
         RecyclePartitionInfo partitionInfo = idToPartition.remove(partitionId);
+        if (partitionInfo == null) {
+            LOG.warn("erase partition: {} is null", partitionId);
+            return;
+        }
         idToRecycleTime.remove(partitionId);
 
         Partition partition = partitionInfo.getPartition();
