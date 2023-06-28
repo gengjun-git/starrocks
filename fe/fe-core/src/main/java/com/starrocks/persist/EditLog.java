@@ -819,7 +819,6 @@ public class EditLog {
             }
         } catch (Exception e) {
             LOG.error("Operation Type {}", opCode, e);
-            System.exit(-1);
         }
     }
 
