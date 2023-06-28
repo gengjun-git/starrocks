@@ -4826,6 +4826,10 @@ public class Catalog {
         Database db = getDbIncludeRecycleBin(info.getDbId());
         OlapTable olapTable = (OlapTable) getTableIncludeRecycleBin(db, info.getTableId());
         Partition partition = getPartitionIncludeRecycleBin(olapTable, info.getPartitionId());
+        if (partition == null) {
+            LOG.warn("update replica partition is null {}", info.getPartitionId());
+            return;
+        }
         MaterializedIndex materializedIndex = partition.getIndex(info.getIndexId());
         Tablet tablet = materializedIndex.getTablet(info.getTabletId());
         Replica replica = tablet.getReplicaByBackendId(info.getBackendId());
