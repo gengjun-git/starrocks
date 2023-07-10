@@ -1639,6 +1639,10 @@ public class OlapTable extends Table implements GsonPostProcessable {
             List<Range<PartitionKey>> tempRangeList = Lists.newArrayList();
             for (String partName : partitionNames) {
                 Partition partition = nameToPartition.get(partName);
+                if (partition == null) {
+                    LOG.warn("partition is null: {}, table: {}-{}", partName, name, id);
+                    return;
+                }
                 Preconditions.checkNotNull(partition);
                 rangeList.add(rangeInfo.getRange(partition.getId()));
             }
@@ -1654,6 +1658,10 @@ public class OlapTable extends Table implements GsonPostProcessable {
             Set<Long> replacePartitionIds = Sets.newHashSet();
             for (String partName : partitionNames) {
                 Partition partition = nameToPartition.get(partName);
+                if (partition == null) {
+                    LOG.warn("partition is null: {}, table: {}-{}", partName, name, id);
+                    return;
+                }
                 Preconditions.checkNotNull(partition);
                 replacePartitionIds.add(partition.getId());
             }
