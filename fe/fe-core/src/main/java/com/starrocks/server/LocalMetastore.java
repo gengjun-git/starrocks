@@ -1437,6 +1437,11 @@ public class LocalMetastore implements ConnectorMetadata {
         db.writeLock();
         try {
             OlapTable olapTable = (OlapTable) db.getTable(info.getTableId());
+            if (olapTable == null) {
+                LOG.warn("replayAddPartition olapTable is null: db: {}, table: {}, partition: {}-{}",
+                        info.getDbId(), info.getTableId(), info.getPartition().getId(), info.getPartition().getName());
+                return;
+            }
             Partition partition = info.getPartition();
 
             PartitionInfo partitionInfo = olapTable.getPartitionInfo();
