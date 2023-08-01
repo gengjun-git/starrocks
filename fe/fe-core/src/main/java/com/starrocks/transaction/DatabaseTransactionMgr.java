@@ -1522,6 +1522,11 @@ public class DatabaseTransactionMgr {
         for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
             long tableId = tableCommitInfo.getTableId();
             Table table = db.getTable(tableId);
+            if (table == null) {
+                LOG.warn("updateCatalogAfterCommitted, table is null, table: {}, db: {}-{}",
+                        tableId, db.getId(), db.getFullName());
+                continue;
+            }
             TransactionLogApplier applier = txnLogApplierFactory.create(table);
             applier.applyCommitLog(transactionState, tableCommitInfo);
         }

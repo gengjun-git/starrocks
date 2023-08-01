@@ -390,6 +390,11 @@ public class ConsistencyChecker extends LeaderDaemon {
         db.writeLock();
         try {
             OlapTable table = (OlapTable) db.getTable(info.getTableId());
+            if (table == null) {
+                LOG.warn("replayFinishConsistencyCheck table is null, table: {}, db: {}-{}",
+                        info.getTableId(), db.getId(), db.getFullName());
+                return;
+            }
             Partition partition = table.getPartition(info.getPartitionId());
             MaterializedIndex index = partition.getIndex(info.getIndexId());
             LocalTablet tablet = (LocalTablet) index.getTablet(info.getTabletId());
