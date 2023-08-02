@@ -1291,6 +1291,11 @@ public class DatabaseTransactionMgr {
         for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTable(tableId);
+            if (table == null) {
+                LOG.warn("updateCatalogAfterCommitted table is null, table: {}, db: {}-{}",
+                        tableId, db.getId(), db.getFullName());
+                continue;
+            }
             for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
                 long partitionId = partitionCommitInfo.getPartitionId();
                 Partition partition = table.getPartition(partitionId);
@@ -1317,6 +1322,11 @@ public class DatabaseTransactionMgr {
         for (TableCommitInfo tableCommitInfo : transactionState.getIdToTableCommitInfos().values()) {
             long tableId = tableCommitInfo.getTableId();
             OlapTable table = (OlapTable) db.getTable(tableId);
+            if (table == null) {
+                LOG.warn("updateCatalogAfterVisible table is null, table: {}, db: {}-{}",
+                        tableId, db.getId(), db.getFullName());
+                continue;
+            }
             List<String> validDictCacheColumns = Lists.newArrayList();
             long maxPartitionVersionTime = -1;
             for (PartitionCommitInfo partitionCommitInfo : tableCommitInfo.getIdToPartitionCommitInfo().values()) {
