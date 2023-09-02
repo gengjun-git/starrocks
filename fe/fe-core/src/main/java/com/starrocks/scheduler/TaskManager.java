@@ -2,6 +2,7 @@
 
 package com.starrocks.scheduler;
 
+import autovalue.shaded.com.google.common.common.annotations.VisibleForTesting;
 import com.clearspring.analytics.util.Lists;
 import com.clearspring.analytics.util.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -108,6 +109,7 @@ public class TaskManager {
     }
 
     private void registerPeriodicalTask() {
+        LocalDateTime scheduleTime = LocalDateTime.now();
         for (Task task : nameToTaskMap.values()) {
             if (task.getType() != Constants.TaskType.PERIODICAL) {
                 continue;
@@ -121,14 +123,10 @@ public class TaskManager {
             if (taskSchedule == null) {
                 continue;
             }
-
+            long period = TimeUtils.convertTimeUnitValueToSecond(taskSchedule.getPeriod(),
+                    taskSchedule.getTimeUnit());
             LocalDateTime startTime = Utils.getDatetimeFromLong(taskSchedule.getStartTime());
-            Duration duration = Duration.between(LocalDateTime.now(), startTime);
-            long initialDelay = duration.getSeconds();
-            // if startTime < now, start scheduling now
-            if (initialDelay < 0) {
-                initialDelay = 0;
-            }
+            long initialDelay = getInitialDelayTime(period, startTime, scheduleTime);
             // Tasks that run automatically have the lowest priority,
             // but are automatically merged if they are found to be merge-able.
             ExecuteOption option = new ExecuteOption(Constants.TaskRunPriority.LOWEST.value(),
@@ -138,6 +136,19 @@ public class TaskManager {
                     TimeUtils.convertTimeUnitValueToSecond(taskSchedule.getPeriod(),
                             taskSchedule.getTimeUnit()), TimeUnit.SECONDS);
             periodFutureMap.put(task.getId(), future);
+            scheduleTime = scheduleTime.plusSeconds(5);
+        }
+    }
+
+    @VisibleForTesting
+    static long getInitialDelayTime(long period, LocalDateTime startTime, LocalDateTime scheduleTime) {
+        Duration duration = Duration.between(scheduleTime, startTime);
+        long initialDelay = duration.getSeconds();
+        // if startTime < now, start scheduling from the next period
+        if (initialDelay < 0) {
+            return ((initialDelay % period) + period) % period;
+        } else {
+            return initialDelay;
         }
     }
 
@@ -407,12 +418,7 @@ public class TaskManager {
     private void registerScheduler(Task task) {
         TaskSchedule schedule = task.getSchedule();
         LocalDateTime startTime = Utils.getDatetimeFromLong(schedule.getStartTime());
-        Duration duration = Duration.between(LocalDateTime.now(), startTime);
-        long initialDelay = duration.getSeconds();
-        // if startTime < now, start scheduling now
-        if (initialDelay < 0) {
-            initialDelay = 0;
-        }
+        long initialDelay = getInitialDelayTime(schedule.getPeriod(), startTime, LocalDateTime.now());
         // this operation should only run in master
         ScheduledFuture<?> future = periodScheduler.scheduleAtFixedRate(() ->
                         executeTask(task.getName()), initialDelay,
