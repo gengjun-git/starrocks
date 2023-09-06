@@ -106,7 +106,6 @@ public class TaskRun implements Comparable<TaskRun> {
         Preconditions.checkNotNull(status.getDefinition(), "The definition of task run should not null");
         taskRunContext.setDefinition(status.getDefinition());
         runCtx = new ConnectContext(null);
-        runCtx.setThreadLocalInfo();
         if (parentRunCtx != null) {
             runCtx.setParentConnectContext(parentRunCtx);
         }

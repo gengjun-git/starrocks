@@ -127,7 +127,6 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
             doMvRefresh(context);
         } finally {
             postProcess();
-            GlobalStateMgr.getCurrentState().getMetadataMgr().removeQueryMetadata();
         }
     }
 
@@ -679,6 +678,7 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
                 .setUser(ctx.getQualifiedUser())
                 .setDb(ctx.getDatabase());
         ctx.getPlannerProfile().reset();
+        ctx.setThreadLocalInfo();
         ctx.getSessionVariable().setEnableMaterializedViewRewrite(false);
         String definition = mvContext.getDefinition();
         InsertStmt insertStmt =
