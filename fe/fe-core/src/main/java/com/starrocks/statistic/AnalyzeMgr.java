@@ -490,7 +490,12 @@ public class AnalyzeMgr implements Writable {
                 long loadRows = ((InsertTxnCommitAttachment) attachment).getLoadedRows();
                 if (loadRows == 0) {
                     OlapTable table = (OlapTable) db.getTable(basicStatsMeta.getTableId());
-                    basicStatsMeta.increaseUpdateRows(table.getRowCount());
+                    if (table == null) {
+                        LOG.warn("updateLoadRows table is null, db: {}-{}, table: {}",
+                                db.getId(), db.getFullName(), basicStatsMeta.getTableId());
+                    } else {
+                        basicStatsMeta.increaseUpdateRows(table.getRowCount());
+                    }
                 } else {
                     basicStatsMeta.increaseUpdateRows(((InsertTxnCommitAttachment) attachment).getLoadedRows());
                 }
