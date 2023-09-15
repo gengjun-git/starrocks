@@ -2916,6 +2916,13 @@ public class LocalMetastore implements ConnectorMetadata {
         MaterializedIndex materializedIndex = partition.getIndex(info.getIndexId());
         LocalTablet tablet = (LocalTablet) materializedIndex.getTablet(info.getTabletId());
         Replica replica = tablet.getReplicaByBackendId(info.getBackendId());
+        if (replica == null) {
+            LOG.warn("unprotectUpdateReplica replica is null, " +
+                    "db: {}-{}, table: {}-{}, partition: {}-{}, index: {}, tablet: {}, backend: {}",
+                    db.getId(), db.getFullName(), olapTable.getId(), olapTable.getName(), partition.getId(),
+                    partition.getName(), materializedIndex.getId(), info.getTabletId(), info.getBackendId());
+            return;
+        }
         Preconditions.checkNotNull(replica, info);
         replica.updateRowCount(info.getVersion(), info.getMinReadableVersion(), info.getDataSize(), info.getRowCount());
         replica.setBad(false);
