@@ -28,7 +28,9 @@ import java.util.List;
 
 public class AddPartitionsInfo implements Writable {
 
-    private final List<PartitionPersistInfo> infos;
+    private List<PartitionPersistInfo> infos;
+
+    public AddPartitionsInfo() {}
 
     public AddPartitionsInfo(List<PartitionPersistInfo> infos) {
         this.infos = infos;

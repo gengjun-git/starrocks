@@ -28,7 +28,9 @@ import java.util.List;
 public class AddSubPartitionsInfoV2 implements Writable {
 
     @SerializedName("infos")
-    private final List<PhysicalPartitionPersistInfoV2> infos;
+    private List<PhysicalPartitionPersistInfoV2> infos;
+
+    public AddSubPartitionsInfoV2() {}
 
     public AddSubPartitionsInfoV2(List<PhysicalPartitionPersistInfoV2> infos) {
         this.infos = infos;

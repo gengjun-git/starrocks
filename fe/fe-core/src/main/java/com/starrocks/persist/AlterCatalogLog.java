@@ -31,6 +31,8 @@ public class AlterCatalogLog implements Writable {
     @SerializedName(value = "properties")
     private Map<String, String> properties;
 
+    public AlterCatalogLog() {}
+
     public AlterCatalogLog(String catalogName, Map<String, String> properties) {
         this.catalogName = catalogName;
         this.properties = properties;
