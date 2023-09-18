@@ -33,6 +33,8 @@ public class AlterUserInfo implements Writable {
     @SerializedName(value = "a")
     UserAuthenticationInfo authenticationInfo;
 
+    public AlterUserInfo() {}
+
     public AlterUserInfo(UserIdentity userIdentity, UserAuthenticationInfo authenticationInfo) {
         this.userIdentity = userIdentity;
         this.authenticationInfo = authenticationInfo;

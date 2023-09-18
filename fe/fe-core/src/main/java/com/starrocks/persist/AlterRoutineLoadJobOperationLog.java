@@ -57,6 +57,8 @@ public class AlterRoutineLoadJobOperationLog implements Writable {
     @SerializedName(value = "originStatement")
     private OriginStatement originStatement;
 
+    public AlterRoutineLoadJobOperationLog() {}
+
     public AlterRoutineLoadJobOperationLog(long jobId, Map<String, String> jobProperties,
                                            RoutineLoadDataSourceProperties dataSourceProperties,
                                            OriginStatement originStatement) {

@@ -35,6 +35,8 @@ public class AlterMaterializedViewStatusLog implements Writable {
     @SerializedName(value = "status")
     private String status;
 
+    public AlterMaterializedViewStatusLog() {}
+
     public AlterMaterializedViewStatusLog(long dbId, long tableId, String status) {
         this.dbId = dbId;
         this.tableId = tableId;

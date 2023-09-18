@@ -110,6 +110,8 @@ public class AnalyticExpr extends Expr {
     // The function of HLL_UNION_AGG can't be used with a window by now.
     public static String HLL_UNION_AGG = "HLL_UNION_AGG";
 
+    public AnalyticExpr() {}
+
     public AnalyticExpr(FunctionCallExpr fnCall, List<Expr> partitionExprs, List<OrderByElement> orderByElements,
                         AnalyticWindow window, String partitionHint) {
         this(fnCall, partitionExprs, orderByElements, window, partitionHint, NodePosition.ZERO);

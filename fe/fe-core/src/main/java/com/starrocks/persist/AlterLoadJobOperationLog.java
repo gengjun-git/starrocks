@@ -32,6 +32,8 @@ public class AlterLoadJobOperationLog implements Writable {
     @SerializedName(value = "jobProperties")
     private Map<String, String> jobProperties;
 
+    public AlterLoadJobOperationLog() {}
+
     public AlterLoadJobOperationLog(long jobId, Map<String, String> jobProperties) {
         this.jobId = jobId;
         this.jobProperties = jobProperties;

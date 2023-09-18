@@ -32,6 +32,8 @@ public class AlterWhPropertyOplog implements Writable {
     @SerializedName(value = "properties")
     private Map<String, String> properties = new HashMap<>();
 
+    public AlterWhPropertyOplog() {}
+
     public AlterWhPropertyOplog(String whName, Map<String, String> properties) {
         this.warehouseName = whName;
         this.properties = properties;

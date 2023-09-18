@@ -39,6 +39,8 @@ public class AlterWhClusterOplog implements Writable {
         return cluster;
     }
 
+    public AlterWhClusterOplog() {}
+
     public AlterWhClusterOplog(String warehouseName, Cluster cluster) {
         this.warehouseName = warehouseName;
         this.cluster = cluster;

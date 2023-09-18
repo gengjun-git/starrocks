@@ -571,17 +571,6 @@ public class AnalyzeMgr implements Writable {
 
     @Override
     public void write(DataOutput out) throws IOException {
-        // save history
-        SerializeData data = new SerializeData();
-        data.jobs = getAllNativeAnalyzeJobList();
-        data.nativeStatus = new ArrayList<>(getAnalyzeStatusMap().values().stream().
-                filter(AnalyzeStatus::isNative).
-                map(status -> (NativeAnalyzeStatus) status).collect(Collectors.toSet()));
-        data.basicStatsMeta = new ArrayList<>(getBasicStatsMetaMap().values());
-        data.histogramStatsMeta = new ArrayList<>(getHistogramStatsMetaMap().values());
-
-        String s = GsonUtils.GSON.toJson(data);
-        Text.writeString(out, s);
     }
 
     public long loadAnalyze(DataInputStream dis, long checksum) throws IOException {
@@ -595,7 +584,17 @@ public class AnalyzeMgr implements Writable {
     }
 
     public long saveAnalyze(DataOutputStream dos, long checksum) throws IOException {
-        write(dos);
+        // save history
+        SerializeData data = new SerializeData();
+        data.jobs = getAllNativeAnalyzeJobList();
+        data.nativeStatus = new ArrayList<>(getAnalyzeStatusMap().values().stream().
+                filter(AnalyzeStatus::isNative).
+                map(status -> (NativeAnalyzeStatus) status).collect(Collectors.toSet()));
+        data.basicStatsMeta = new ArrayList<>(getBasicStatsMetaMap().values());
+        data.histogramStatsMeta = new ArrayList<>(getHistogramStatsMetaMap().values());
+
+        String s = GsonUtils.GSON.toJson(data);
+        Text.writeString(dos, s);
         return checksum;
     }
 
