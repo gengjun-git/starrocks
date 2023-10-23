@@ -58,7 +58,7 @@ public class PersistTest {
     public void listPackages(String basePackage, List<String> classes) {
         URL url = Writable.class.getClassLoader()
                 .getResource("./" + basePackage.replaceAll("\\.", "/"));
-        System.out.println("start to ");
+        System.out.println("start to check file: " + url);
         File directory = new File(url.getFile());
         for (File file : directory.listFiles()) {
             if (file.isDirectory()) {
