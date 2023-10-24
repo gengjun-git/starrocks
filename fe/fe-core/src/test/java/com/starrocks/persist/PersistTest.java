@@ -21,19 +21,18 @@ import com.starrocks.common.io.Writable;
 import org.junit.Test;
 
 import java.io.File;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
 public class PersistTest {
     @Test
     public void testEmptyConstructorOfWritableSubClasses() throws Exception {
-        String basePackage = Writable.class.getClassLoader().getResource("").getPath();
-        File[] files = new File(basePackage).listFiles();
+        String rootPath = Writable.class.getClassLoader().getResource("").getPath() + "/../classes";
+        File[] files = new File(rootPath).listFiles();
         List<String> allClassPaths = new ArrayList<>();
         for (File file : files) {
             if (file.isDirectory()) {
-                listPackages(file.getName(), allClassPaths);
+                listPackages(rootPath, file.getName(), allClassPaths);
             }
         }
 
@@ -55,14 +54,16 @@ public class PersistTest {
         }
     }
 
-    public void listPackages(String basePackage, List<String> classes) {
-        URL url = Writable.class.getClassLoader()
-                .getResource("./" + basePackage.replaceAll("\\.", "/"));
-        System.out.println("start to check file: " + url);
-        File directory = new File(url.getFile());
+    public void listPackages(String rootPath, String basePackage, List<String> classes) {
+        String path = rootPath + "/" + basePackage.replaceAll("\\.", "/");
+        System.out.println("start to check file: " + path);
+        File directory = new File(path);
+        if (directory.listFiles() == null) {
+            return;
+        }
         for (File file : directory.listFiles()) {
             if (file.isDirectory()) {
-                listPackages(basePackage + "." + file.getName(), classes);
+                listPackages(rootPath, basePackage + "." + file.getName(), classes);
             } else {
                 String classpath = file.getName();
                 if (classpath.endsWith(".class")) {
