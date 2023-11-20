@@ -46,6 +46,11 @@ public class OlapTableTxnLogApplier implements TransactionLogApplier {
         for (PartitionCommitInfo partitionCommitInfo : commitInfo.getIdToPartitionCommitInfo().values()) {
             long partitionId = partitionCommitInfo.getPartitionId();
             Partition partition = table.getPartition(partitionId);
+            if (partition == null) {
+                LOG.warn("applyCommitLog failed, partitionId: {}, table: {}-{}",
+                        partitionId, table.getId(), table.getName());
+                continue;
+            }
             List<MaterializedIndex> allIndices =
                     partition.getMaterializedIndices(MaterializedIndex.IndexExtState.ALL);
             for (MaterializedIndex index : allIndices) {

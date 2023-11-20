@@ -388,6 +388,10 @@ public class ConsistencyChecker extends FrontendDaemon {
         try {
             OlapTable table = (OlapTable) db.getTable(info.getTableId());
             Partition partition = table.getPartition(info.getPartitionId());
+            if (partition == null) {
+                LOG.warn("replayFinishConsistencyCheck failed");
+                return;
+            }
             MaterializedIndex index = partition.getIndex(info.getIndexId());
             LocalTablet tablet = (LocalTablet) index.getTablet(info.getTabletId());
 

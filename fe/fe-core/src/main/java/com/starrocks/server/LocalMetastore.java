@@ -1275,7 +1275,7 @@ public class LocalMetastore implements ConnectorMetadata {
             boolean isTempPartition = addPartitionClause.isTempPartition();
             if (existPartitionNameSet.contains(partition.getName())) {
                 LOG.info("add partition[{}] which already exists", partition.getName());
-                return;
+                continue;
             }
             long partitionId = partition.getId();
             PartitionPersistInfoV2 info = new ListPartitionPersistInfo(db.getId(), olapTable.getId(), partition,
@@ -2451,6 +2451,10 @@ public class LocalMetastore implements ConnectorMetadata {
         Database db = getDbIncludeRecycleBin(info.getDbId());
         OlapTable olapTable = (OlapTable) getTableIncludeRecycleBin(db, info.getTableId());
         Partition partition = getPartitionIncludeRecycleBin(olapTable, info.getPartitionId());
+        if (partition == null) {
+            LOG.warn("unprotectUpdateReplica failed, info: {}", info);
+            return;
+        }
         MaterializedIndex materializedIndex = partition.getIndex(info.getIndexId());
         LocalTablet tablet = (LocalTablet) materializedIndex.getTablet(info.getTabletId());
         Replica replica = tablet.getReplicaByBackendId(info.getBackendId());
@@ -2483,6 +2487,9 @@ public class LocalMetastore implements ConnectorMetadata {
         Database db = getDbIncludeRecycleBin(info.getDbId());
         OlapTable olapTable = (OlapTable) getTableIncludeRecycleBin(db, info.getTableId());
         Partition partition = getPartitionIncludeRecycleBin(olapTable, info.getPartitionId());
+        if (partition == null) {
+            return;
+        }
         MaterializedIndex materializedIndex = partition.getIndex(info.getIndexId());
         LocalTablet tablet = (LocalTablet) materializedIndex.getTablet(info.getTabletId());
         tablet.deleteReplicaByBackendId(info.getBackendId());
