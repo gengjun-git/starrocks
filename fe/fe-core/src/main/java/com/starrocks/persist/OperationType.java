@@ -34,6 +34,11 @@
 
 package com.starrocks.persist;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Set;
+
 //NOTICE new added type starts from 10000, to avoid conflicting with community added type
 public class OperationType {
     public static final short OP_INVALID = -1;
@@ -526,4 +531,22 @@ public class OperationType {
      * NOTICE: OperationType cannot use a value exceeding 20000, and an error will be reported if it exceeds
      */
     public static final short OP_TYPE_EOF = 20000;
+
+    public static final ImmutableSet<Short> RECOVERABLE_OPERATION_FAILURE = ImmutableSet.<Short>builder()
+            .add(OP_DROP_DB, OP_ALTER_DB, OP_ALTER_DB_V2, OP_ERASE_DB, OP_RENAME_DB, OP_RENAME_DB_V2)
+            .add(OP_DROP_TABLE, OP_DROP_TABLE_V2, OP_DROP_PARTITION, OP_MODIFY_PARTITION, OP_MODIFY_PARTITION_V2)
+            .add(OP_ERASE_TABLE, OP_ERASE_PARTITION, OP_RENAME_TABLE, OP_RENAME_TABLE_V2, OP_RENAME_PARTITION)
+            .add(OP_RENAME_PARTITION_V2, OP_BACKUP_JOB, OP_BACKUP_JOB_V2, OP_MODIFY_VIEW_DEF)
+            .add(OP_BATCH_MODIFY_PARTITION, OP_DROP_ROLLUP, OP_DROP_ROLLUP_V2, OP_CLEAR_ROLLUP_INFO)
+            .add(OP_FINISH_CONSISTENCY_CHECK, OP_RENAME_ROLLUP, OP_RENAME_ROLLUP_V2, OP_MODIFY_DISTRIBUTION_TYPE)
+            .add(OP_MODIFY_DISTRIBUTION_TYPE_V2, OP_BATCH_ADD_ROLLUP, OP_BATCH_ADD_ROLLUP_V2, OP_BATCH_DROP_ROLLUP)
+            .add(OP_REMOVE_ALTER_JOB_V2, OP_EXPORT_CREATE, OP_EXPORT_CREATE_V2, OP_EXPORT_UPDATE_STATE)
+            .add(OP_EXPORT_UPDATE_INFO, OP_EXPORT_UPDATE_INFO_V2, OP_DELETE_REPLICA, OP_DELETE_REPLICA_V2)
+            .add(OP_DROP_BACKEND, OP_DROP_BACKEND_V2, OP_BACKEND_STATE_CHANGE, OP_BACKEND_STATE_CHANGE)
+            .add(OP_REMOVE_FRONTEND, OP_REMOVE_FRONTEND_V2, OP_SET_LOAD_ERROR_HUB, OP_HEARTBEAT, OP_HEARTBEAT_V2)
+            .add(OP_NEW_DROP_USER, OP_DROP_USER_V2, OP_DROP_USER_V3, OP_GRANT_PRIV, OP_REVOKE_PRIV)
+            .add(OP_SET_PASSWORD, OP_CREATE_ROLE, OP_DROP_ROLE, OP_DROP_ROLE_V2, OP_UPDATE_USER_PROPERTY)
+            .add(OP_TIMESTAMP, OP_TIMESTAMP_V2, OP_GLOBAL_VARIABLE, OP_GLOBAL_VARIABLE_V2, OP_ADD_BROKER)
+            .add(OP_ADD_BROKER_V2, OP_DROP_BROKER, OP_DROP_BROKER_V2, OP_DROP_ALL_BROKER)
+            .build();
 }

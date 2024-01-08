@@ -1710,10 +1710,6 @@ public class EditLog {
         }
     }
 
-    public void logUpdateClusterAndBackendState(BackendIdsUpdateInfo info) {
-        logEdit(OperationType.OP_UPDATE_CLUSTER_AND_BACKENDS, info);
-    }
-
     // for TransactionState
     public void logInsertTransactionState(TransactionState transactionState) {
         if (FeConstants.STARROCKS_META_VERSION >= StarRocksFEMetaVersion.VERSION_4) {
