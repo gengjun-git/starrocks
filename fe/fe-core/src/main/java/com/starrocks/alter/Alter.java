@@ -899,7 +899,17 @@ public class Alter {
         long newTblId = log.getNewTblId();
         Database db = GlobalStateMgr.getCurrentState().getDb(dbId);
         OlapTable origTable = (OlapTable) db.getTable(origTblId);
+        if (origTable == null) {
+            LOG.warn("replay swap table failed, origin table is null, table id: {}, database: {}-{}",
+                    origTblId, db.getFullName(), db.getId());
+            return;
+        }
         OlapTable newTbl = (OlapTable) db.getTable(newTblId);
+        if (newTbl == null) {
+            LOG.warn("replay swap table failed, new table is null, table id: {}, database: {}-{}",
+                    newTblId, db.getFullName(), db.getId());
+            return;
+        }
 
         try {
             swapTableInternal(db, origTable, newTbl);
