@@ -74,9 +74,13 @@ public class LockChecker extends FrontendDaemon {
                     long lockStartTime = lock.getSharedLockTime(threadId);
                     if (lockStartTime > 0L && System.currentTimeMillis() - lockStartTime > Config.slow_lock_threshold_ms) {
                         hasSlowLock = true;
-                        ThreadInfo threadInfo = ManagementFactory.getThreadMXBean().getThreadInfo(threadId, 50);
                         infos.append("lockHoldTime: ").append(System.currentTimeMillis() - lockStartTime).append(" ms;");
-                        infos.append(Util.dumpThread(threadInfo, 50)).append(";");
+                        ThreadInfo threadInfo = ManagementFactory.getThreadMXBean().getThreadInfo(threadId, 50);
+                        if (threadInfo != null) {
+                            infos.append(Util.dumpThread(threadInfo, 50)).append(";");
+                        } else {
+                            infos.append("dump thread: thread id=").append(threadId).append(";");
+                        }
                         slowReadLockCnt++;
                     }
                 }
@@ -118,7 +122,12 @@ public class LockChecker extends FrontendDaemon {
             long[] ids = tmx.findDeadlockedThreads();
             if (ids != null) {
                 for (long id : ids) {
-                    LOG.info("deadlock thread: {}", Util.dumpThread(tmx.getThreadInfo(id, 50), 50));
+                    ThreadInfo threadInfo = tmx.getThreadInfo(id, 50);
+                    if (threadInfo != null) {
+                        LOG.info("deadlock thread: {}", Util.dumpThread(threadInfo, 50));
+                    } else {
+                        LOG.info("deadlock thread: thread id={}", id);
+                    }
                 }
             }
         }
