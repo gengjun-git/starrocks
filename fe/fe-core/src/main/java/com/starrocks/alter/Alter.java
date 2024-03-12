@@ -355,6 +355,14 @@ public class Alter {
         OlapTable origTable = (OlapTable) db.getTable(origTblId);
         OlapTable newTbl = (OlapTable) db.getTable(newTblId);
 
+        if (origTable == null) {
+            LOG.warn("original table is null, id: {}", log.getOrigTblId());
+            return;
+        }
+        if (newTbl == null) {
+            LOG.warn("new table is null, id: {}", log.getNewTblId());
+            return;
+        }
         try {
             swapTableInternal(db, origTable, newTbl);
         } catch (DdlException e) {
