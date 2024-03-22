@@ -1433,7 +1433,7 @@ public class Config extends ConfigBase {
      * disk balance
      */
     @ConfField(mutable = true, aliases = {"balance_load_score_threshold"})
-    public static double tablet_sched_balance_load_score_threshold = 0.1; // 10%
+    public static double tablet_sched_balance_load_score_threshold = 0.2; // 10%
 
     /**
      * For DiskAndTabletLoadBalancer:
