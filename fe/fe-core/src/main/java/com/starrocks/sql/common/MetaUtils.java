@@ -14,14 +14,17 @@
 
 package com.starrocks.sql.common;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Maps;
 import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.TableName;
 import com.starrocks.catalog.Catalog;
+import com.starrocks.catalog.Column;
 import com.starrocks.catalog.Database;
 import com.starrocks.catalog.ExternalOlapTable;
 import com.starrocks.catalog.InternalCatalog;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.Table;
 import com.starrocks.common.AnalysisException;
 import com.starrocks.common.ErrorCode;
@@ -42,6 +45,7 @@ import com.starrocks.thrift.TUniqueId;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -260,5 +264,100 @@ public class MetaUtils {
         return copiedTable;
     }
 
+    public static List<Column> getColumnsByPhysicalName(List<Column> schema, List<ColumnId> names) {
+        List<Column> result = new ArrayList<>(names.size());
+        for (ColumnId name : names) {
+            boolean found = false;
+            for (Column column : schema) {
+                if (name.equalsIgnoreCase(column.getColumnId())) {
+                    result.add(column);
+                    found = true;
+                    break;
+                }
+            }
+            Preconditions.checkState(found, String.format("can not find column by physical name: %s", name));
+        }
 
+        return result;
+    }
+
+    public static List<Column> getColumnsByPhysicalName(Table table, List<ColumnId> names) {
+        List<Column> result = new ArrayList<>(names.size());
+        for (ColumnId name : names) {
+            Column column = table.getColumn(name);
+            if (column == null) {
+                throw new SemanticException(String.format("can not find column by physical name: %s", name));
+            }
+            result.add(column);
+        }
+        return result;
+    }
+
+    public static List<Column> getColumnsByPhysicalName(Map<ColumnId, Column> nameToColumn, List<ColumnId> names) {
+        List<Column> result = new ArrayList<>(names.size());
+        for (ColumnId name : names) {
+            Column column = nameToColumn.get(name);
+            if (column == null) {
+                throw new SemanticException(String.format("can not find column by physical name: %s", name));
+            }
+            result.add(column);
+        }
+        return result;
+    }
+
+    public static Map<ColumnId, Column> buildPhysicalNameToColumn(List<Column> schema) {
+        Map<ColumnId, Column> result = Maps.newTreeMap(ColumnId.CASE_INSENSITIVE_ORDER);
+        for (Column column : schema) {
+            result.put(column.getColumnId(), column);
+        }
+        return result;
+    }
+
+    public static List<String> getColumnNamesByPhysicalNames(Table table, List<ColumnId> physicalNames) {
+        List<String> names = new ArrayList<>(physicalNames.size());
+        for (ColumnId physicalName : physicalNames) {
+            Column column = table.getColumn(physicalName);
+            if (column == null) {
+                throw new SemanticException(String.format("can not find column by physical name: %s", physicalName));
+            }
+            names.add(column.getName());
+        }
+        return names;
+    }
+
+    public static List<String> getColumnNamesByPhysicalNames(String catalogName,
+                                                             String dbName,
+                                                             String tableName,
+                                                             List<ColumnId> physicalNames) {
+        Table table = getTable(catalogName,dbName, tableName);
+        return getColumnNamesByPhysicalNames(table, physicalNames);
+    }
+
+    public static List<String> getColumnNamesByPhysicalNames(long dbId,
+                                                             long tableId,
+                                                             List<ColumnId> physicalNames) {
+        Table table = getTable(dbId, tableId);
+        return getColumnNamesByPhysicalNames(table, physicalNames);
+    }
+
+    public static String getColumnNameByPhysicalName(long dbId, long tableId, ColumnId physicalName) {
+        Table table = getTable(dbId, tableId);
+        Column column = table.getColumn(physicalName);
+        if (column == null) {
+            throw new SemanticException(String.format("can not find column by physical name: %s", physicalName));
+        }
+        return column.getName();
+    }
+
+    public static List<ColumnId> getColumnPhysicalNamesByNames(Table table, List<String> names) {
+        List<ColumnId> columnIds = new ArrayList<>(names.size());
+        for (String name : names) {
+            Column column = table.getColumn(name);
+            if (column == null) {
+                throw new SemanticException(String.format("can not find column by name: %s", name));
+            }
+            columnIds.add(column.getColumnId());
+        }
+        return columnIds;
+    }
 }

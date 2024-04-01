@@ -415,6 +415,10 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable, 
         return nameToColumn.get(name);
     }
 
+    public Column getColumn(ColumnId name) {
+        return nameToColumn.get(name.getId());
+    }
+
     public boolean containColumn(String columnName) {
         return nameToColumn.containsKey(columnName);
     }
@@ -425,10 +429,6 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable, 
 
     public long getCreateTime() {
         return createTime;
-    }
-
-    public Map<String, Column> getNameToColumn() {
-        return nameToColumn;
     }
 
     public String getTableLocation() {
@@ -510,31 +510,6 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable, 
 
         // write create time
         out.writeLong(createTime);
-    }
-
-    public void readFields(DataInput in) throws IOException {
-        if (!isTypeRead) {
-            type = TableType.valueOf(Text.readString(in));
-            isTypeRead = true;
-        }
-
-        super.readFields(in);
-
-        this.id = in.readLong();
-        this.name = Text.readString(in);
-
-        // base schema
-        int columnCount = in.readInt();
-        for (int i = 0; i < columnCount; i++) {
-            Column column = Column.read(in);
-            this.fullSchema.add(column);
-            this.nameToColumn.put(column.getName(), column);
-        }
-
-        comment = Text.readString(in);
-
-        // read create time
-        this.createTime = in.readLong();
     }
 
     @Override

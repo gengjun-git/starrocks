@@ -46,6 +46,7 @@ import com.starrocks.analysis.IntLiteral;
 import com.starrocks.analysis.LargeIntLiteral;
 import com.starrocks.analysis.NullLiteral;
 import com.starrocks.analysis.ParseNode;
+import com.starrocks.analysis.PhysicalNameExpr;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TypeDef;
 import com.starrocks.catalog.AggregateType;
@@ -53,6 +54,7 @@ import com.starrocks.catalog.Column;
 import com.starrocks.catalog.FunctionSet;
 import com.starrocks.catalog.PrimitiveType;
 import com.starrocks.catalog.ScalarType;
+import com.starrocks.catalog.Table;
 import com.starrocks.catalog.Type;
 import com.starrocks.common.AnalysisException;
 import com.starrocks.common.Config;
@@ -512,11 +514,17 @@ public class ColumnDef implements ParseNode {
         return pos;
     }
 
-    public Column toColumn() {
+    public Column toColumn(Table table) {
         Column col = new Column(name, typeDef.getType(), isKey, aggregateType, isAllowNull, defaultValueDef, comment,
                 Column.COLUMN_UNIQUE_ID_INIT_VALUE);
         col.setIsAutoIncrement(isAutoIncrement);
-        col.setGeneratedColumnExpr(generatedColumnExpr);
+        if (generatedColumnExpr != null) {
+            if (table != null) {
+                col.setGeneratedColumnExpr(PhysicalNameExpr.create(table, generatedColumnExpr));
+            } else {
+                col.setGeneratedColumnExpr(PhysicalNameExpr.create(generatedColumnExpr));
+            }
+        }
         return col;
     }
 

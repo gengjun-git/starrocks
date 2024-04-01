@@ -42,6 +42,7 @@ import com.starrocks.planner.PartitionPruner;
 import com.starrocks.planner.RangePartitionPruner;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.common.ErrorType;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.common.StarRocksPlannerException;
 import com.starrocks.sql.optimizer.OptimizerContext;
 import com.starrocks.sql.optimizer.Utils;
@@ -92,7 +93,8 @@ public class OptExternalPartitionPruner {
 
             Collection<Long> partitionIds = null;
             try {
-                partitionIds = partitionPrune(esTablePartitions.getPartitionInfo(), operator.getColumnFilters());
+                partitionIds = partitionPrune(operator.getTable(),
+                        esTablePartitions.getPartitionInfo(), operator.getColumnFilters());
             } catch (AnalysisException e) {
                 LOG.warn("Es Table partition prune failed. ", e);
             }
@@ -467,7 +469,7 @@ public class OptExternalPartitionPruner {
      * @return
      * @throws AnalysisException
      */
-    private static Collection<Long> partitionPrune(PartitionInfo partitionInfo,
+    private static Collection<Long> partitionPrune(Table table, PartitionInfo partitionInfo,
             Map<String, PartitionColumnFilter> columnFilters) throws AnalysisException {
         if (partitionInfo == null) {
             return null;
@@ -478,8 +480,10 @@ public class OptExternalPartitionPruner {
             case EXPR_RANGE: {
                 RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) partitionInfo;
                 Map<Long, Range<PartitionKey>> keyRangeById = rangePartitionInfo.getIdToRange(false);
-                partitionPruner =
-                        new RangePartitionPruner(keyRangeById, rangePartitionInfo.getPartitionColumns(), columnFilters);
+                partitionPruner = new RangePartitionPruner(
+                        keyRangeById,
+                        MetaUtils.getColumnsByPhysicalName(table, rangePartitionInfo.getPartitionColumns()),
+                        columnFilters);
                 return partitionPruner.prune();
             }
             default: {

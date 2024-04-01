@@ -61,13 +61,18 @@ public class PartitionDiffer {
     private int partitionTTLNumber;
     private PeriodDuration partitionTTL;
     private PartitionInfo partitionInfo;
+    private List<Column> partitionColumns;
 
-    public PartitionDiffer(Range<PartitionKey> rangeToInclude, int partitionTTLNumber, PeriodDuration partitionTTL,
-                           PartitionInfo partitionInfo) {
+    public PartitionDiffer(Range<PartitionKey> rangeToInclude,
+                           int partitionTTLNumber,
+                           PeriodDuration partitionTTL,
+                           PartitionInfo partitionInfo,
+                           List<Column> partitionColumns) {
         this.rangeToInclude = rangeToInclude;
         this.partitionTTLNumber = partitionTTLNumber;
         this.partitionInfo = partitionInfo;
         this.partitionTTL = partitionTTL;
+        this.partitionColumns = partitionColumns;
     }
 
     public PartitionDiffer() {
@@ -76,8 +81,9 @@ public class PartitionDiffer {
     public static PartitionDiffer build(MaterializedView materializedView, Pair<String, String> partitionRange)
             throws AnalysisException {
         Range<PartitionKey> rangeToInclude = null;
-        Column partitionColumn =
-                ((RangePartitionInfo) materializedView.getPartitionInfo()).getPartitionColumns().get(0);
+        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                materializedView, materializedView.getPartitionInfo().getPartitionColumns());
+        Column partitionColumn = partitionColumns.get(0);
         String start = partitionRange.first;
         String end = partitionRange.second;
         if (start != null || end != null) {
@@ -86,7 +92,7 @@ public class PartitionDiffer {
         int partitionTTLNumber = materializedView.getTableProperty().getPartitionTTLNumber();
         PeriodDuration partitionTTL = materializedView.getTableProperty().getPartitionTTL();
         return new PartitionDiffer(rangeToInclude, partitionTTLNumber, partitionTTL,
-                materializedView.getPartitionInfo());
+                materializedView.getPartitionInfo(), partitionColumns);
     }
 
     /**
@@ -117,7 +123,6 @@ public class PartitionDiffer {
         }
 
         if (partitionTTL != null && !partitionTTL.isZero() && partitionInfo instanceof RangePartitionInfo) {
-            List<Column> partitionColumns = partitionInfo.getPartitionColumns();
             Type partitionType = partitionColumns.get(0).getType();
             LocalDateTime ttlTime = LocalDateTime.now().minus(partitionTTL);
             PartitionKey ttlLowerBound;
@@ -140,7 +145,6 @@ public class PartitionDiffer {
                             .sorted(Comparator.reverseOrder())
                             .collect(Collectors.toList());
 
-            List<Column> partitionColumns = partitionInfo.getPartitionColumns();
             Type partitionType = partitionColumns.get(0).getType();
             Predicate<PartitionRange> isShadowKey = Predicates.alwaysFalse();
             Predicate<PartitionRange> isInFuture = Predicates.alwaysFalse();

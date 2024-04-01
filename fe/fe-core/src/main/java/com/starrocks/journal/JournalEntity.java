@@ -235,12 +235,6 @@ public class JournalEntity implements Writable {
                 isRead = true;
                 break;
             }
-            case OperationType.OP_CREATE_DB: {
-                data = new Database();
-                ((Database) data).readFields(in);
-                isRead = true;
-                break;
-            }
             case OperationType.OP_CREATE_DB_V2: {
                 data = CreateDbInfo.read(in);
                 isRead = true;
@@ -261,13 +255,6 @@ public class JournalEntity implements Writable {
             case OperationType.OP_ALTER_DB_V2:
             case OperationType.OP_RENAME_DB_V2: {
                 data = GsonUtils.GSON.fromJson(Text.readString(in), DatabaseInfo.class);
-                isRead = true;
-                break;
-            }
-            case OperationType.OP_CREATE_MATERIALIZED_VIEW:
-            case OperationType.OP_CREATE_TABLE: {
-                data = new CreateTableInfo();
-                ((CreateTableInfo) data).readFields(in);
                 isRead = true;
                 break;
             }

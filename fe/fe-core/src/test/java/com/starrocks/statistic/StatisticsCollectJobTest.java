@@ -23,6 +23,7 @@ import com.starrocks.catalog.IcebergTable;
 import com.starrocks.catalog.InternalCatalog;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.Table;
 import com.starrocks.catalog.Type;
 import com.starrocks.common.Config;
@@ -321,7 +322,7 @@ public class StatisticsCollectJobTest extends PlanTestNoneDBBase {
     public void testAnalyzeColumn() {
         Database db = GlobalStateMgr.getCurrentState().getDb("test");
         List<StatisticsCollectJob> jobs = StatisticsCollectJobFactory.buildStatisticsCollectJob(
-                new NativeAnalyzeJob(db.getId(), t0StatsTableId, Lists.newArrayList("v2"),
+                new NativeAnalyzeJob(db.getId(), t0StatsTableId, Lists.newArrayList(ColumnId.create("v2")),
                         Lists.newArrayList(Type.BIGINT),
                         StatsConstants.AnalyzeType.FULL, StatsConstants.ScheduleType.SCHEDULE,
                         Maps.newHashMap(),
@@ -337,7 +338,7 @@ public class StatisticsCollectJobTest extends PlanTestNoneDBBase {
     public void testAnalyzeColumnSample() {
         Database db = GlobalStateMgr.getCurrentState().getDb("test");
         List<StatisticsCollectJob> jobs = StatisticsCollectJobFactory.buildStatisticsCollectJob(
-                new NativeAnalyzeJob(db.getId(), t0StatsTableId, Lists.newArrayList("v2"),
+                new NativeAnalyzeJob(db.getId(), t0StatsTableId, Lists.newArrayList(ColumnId.create("v2")),
                         Lists.newArrayList(Type.BIGINT),
                         StatsConstants.AnalyzeType.SAMPLE, StatsConstants.ScheduleType.SCHEDULE,
                         Maps.newHashMap(),
@@ -361,7 +362,7 @@ public class StatisticsCollectJobTest extends PlanTestNoneDBBase {
         GlobalStateMgr.getCurrentState().getAnalyzeMgr().addBasicStatsMeta(basicStatsMeta);
 
         List<StatisticsCollectJob> jobs = StatisticsCollectJobFactory.buildStatisticsCollectJob(
-                new NativeAnalyzeJob(db.getId(), olapTable.getId(), Lists.newArrayList("v2"),
+                new NativeAnalyzeJob(db.getId(), olapTable.getId(), Lists.newArrayList(ColumnId.create("v2")),
                         Lists.newArrayList(Type.BIGINT),
                         StatsConstants.AnalyzeType.SAMPLE, StatsConstants.ScheduleType.SCHEDULE,
                         Maps.newHashMap(),
@@ -370,7 +371,7 @@ public class StatisticsCollectJobTest extends PlanTestNoneDBBase {
         Assert.assertEquals(1, jobs.size());
 
         jobs = StatisticsCollectJobFactory.buildStatisticsCollectJob(
-                new NativeAnalyzeJob(db.getId(), olapTable.getId(), Lists.newArrayList("v2"),
+                new NativeAnalyzeJob(db.getId(), olapTable.getId(), Lists.newArrayList(ColumnId.create("v2")),
                         Lists.newArrayList(Type.BIGINT),
                         StatsConstants.AnalyzeType.FULL, StatsConstants.ScheduleType.SCHEDULE,
                         Maps.newHashMap(),
@@ -384,7 +385,7 @@ public class StatisticsCollectJobTest extends PlanTestNoneDBBase {
         GlobalStateMgr.getCurrentState().getAnalyzeMgr().addBasicStatsMeta(basicStatsMeta2);
 
         List<StatisticsCollectJob> jobs2 = StatisticsCollectJobFactory.buildStatisticsCollectJob(
-                new NativeAnalyzeJob(db.getId(), olapTable.getId(), Lists.newArrayList("v2"),
+                new NativeAnalyzeJob(db.getId(), olapTable.getId(), Lists.newArrayList(ColumnId.create("v2")),
                         Lists.newArrayList(Type.BIGINT),
                         StatsConstants.AnalyzeType.SAMPLE, StatsConstants.ScheduleType.SCHEDULE,
                         Maps.newHashMap(),

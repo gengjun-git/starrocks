@@ -41,14 +41,13 @@ import com.google.gson.annotations.SerializedName;
 import com.starrocks.planner.OlapScanNode;
 import com.starrocks.sql.ast.DistributionDesc;
 import com.starrocks.sql.ast.HashDistributionDesc;
+import com.starrocks.sql.common.MetaUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
@@ -56,8 +55,14 @@ import static java.util.Objects.requireNonNull;
  * Hash Distribution Info.
  */
 public class HashDistributionInfo extends DistributionInfo {
+
+    @SerializedName("colNames")
+    private List<ColumnId> distributionColumnNames;
+
     @SerializedName(value = "distributionColumns")
-    private List<Column> distributionColumns;
+    @Deprecated // Use distributionColumnNames to get columns, this is reserved for rollback compatibility only.
+    private List<Column> _distributionColumns;
+
     @SerializedName(value = "bucketNum")
     private int bucketNum;
 
@@ -65,12 +70,16 @@ public class HashDistributionInfo extends DistributionInfo {
 
     public HashDistributionInfo() {
         super();
-        this.distributionColumns = new ArrayList<>();
+        this._distributionColumns = new ArrayList<>();
+        this.distributionColumnNames = new ArrayList<>();
     }
 
     public HashDistributionInfo(int bucketNum, List<Column> distributionColumns) {
         super(DistributionInfoType.HASH);
-        this.distributionColumns = requireNonNull(distributionColumns, "distributionColumns is null");
+        this._distributionColumns = requireNonNull(distributionColumns, "distributionColumns is null");
+        this.distributionColumnNames = distributionColumns.stream()
+                .map(column -> ColumnId.create(column.getName()))
+                .collect(Collectors.toList());
         this.bucketNum = bucketNum;
     }
 
@@ -80,8 +89,8 @@ public class HashDistributionInfo extends DistributionInfo {
     }
 
     @Override
-    public List<Column> getDistributionColumns() {
-        return distributionColumns;
+    public List<ColumnId> getDistributionColumns() {
+        return distributionColumnNames;
     }
 
     @Override
@@ -90,9 +99,9 @@ public class HashDistributionInfo extends DistributionInfo {
     }
 
     @Override
-    public String getDistributionKey() {
+    public String getDistributionKey(List<Column> schema) {
         List<String> colNames = Lists.newArrayList();
-        for (Column column : distributionColumns) {
+        for (Column column : MetaUtils.getColumnsByPhysicalName(schema, distributionColumnNames)) {
             colNames.add("`" + column.getName() + "`");
         }
         String colList = Joiner.on(", ").join(colNames);
@@ -100,7 +109,10 @@ public class HashDistributionInfo extends DistributionInfo {
     }
 
     public void setDistributionColumns(List<Column> columns) {
-        this.distributionColumns = columns;
+        this._distributionColumns = columns;
+        this.distributionColumnNames = columns.stream()
+                .map(column -> ColumnId.create(column.getName()))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -108,35 +120,9 @@ public class HashDistributionInfo extends DistributionInfo {
         this.bucketNum = bucketNum;
     }
 
-    public void write(DataOutput out) throws IOException {
-        super.write(out);
-        int columnCount = distributionColumns.size();
-        out.writeInt(columnCount);
-        for (Column column : distributionColumns) {
-            column.write(out);
-        }
-        out.writeInt(bucketNum);
-    }
-
-    public void readFields(DataInput in) throws IOException {
-        super.readFields(in);
-        int columnCount = in.readInt();
-        for (int i = 0; i < columnCount; i++) {
-            Column column = Column.read(in);
-            distributionColumns.add(column);
-        }
-        bucketNum = in.readInt();
-    }
-
-    public static DistributionInfo read(DataInput in) throws IOException {
-        DistributionInfo distributionInfo = new HashDistributionInfo();
-        distributionInfo.readFields(in);
-        return distributionInfo;
-    }
-
     @Override
     public int hashCode() {
-        return Objects.hashCode(type, bucketNum, distributionColumns);
+        return Objects.hashCode(type, bucketNum, distributionColumnNames);
     }
 
     @Override
@@ -153,13 +139,13 @@ public class HashDistributionInfo extends DistributionInfo {
 
         return type == hashDistributionInfo.type
                 && bucketNum == hashDistributionInfo.bucketNum
-                && distributionColumns.equals(hashDistributionInfo.distributionColumns);
+                && distributionColumnNames.equals(hashDistributionInfo.distributionColumnNames);
     }
 
     @Override
-    public DistributionDesc toDistributionDesc() {
+    public DistributionDesc toDistributionDesc(List<Column> schema) {
         List<String> distriColNames = Lists.newArrayList();
-        for (Column col : distributionColumns) {
+        for (Column col : MetaUtils.getColumnsByPhysicalName(schema, distributionColumnNames)) {
             distriColNames.add(col.getName());
         }
         DistributionDesc distributionDesc = new HashDistributionDesc(bucketNum, distriColNames);
@@ -168,16 +154,16 @@ public class HashDistributionInfo extends DistributionInfo {
 
     @Override
     public HashDistributionInfo copy() {
-        return new HashDistributionInfo(bucketNum, distributionColumns);
+        return new HashDistributionInfo(bucketNum, _distributionColumns);
     }
 
     @Override
-    public String toSql() {
+    public String toSql(List<Column> schema) {
         StringBuilder builder = new StringBuilder();
         builder.append("DISTRIBUTED BY HASH(");
 
         List<String> colNames = Lists.newArrayList();
-        for (Column column : distributionColumns) {
+        for (Column column : MetaUtils.getColumnsByPhysicalName(schema, distributionColumnNames)) {
             colNames.add("`" + column.getName() + "`");
         }
         String colList = Joiner.on(", ").join(colNames);
@@ -195,8 +181,8 @@ public class HashDistributionInfo extends DistributionInfo {
         builder.append("type: ").append(type).append("; ");
 
         builder.append("distribution columns: [");
-        for (Column column : distributionColumns) {
-            builder.append(column.getName()).append(",");
+        for (ColumnId name : distributionColumnNames) {
+            builder.append(name.getId()).append(",");
         }
         builder.append("]; ");
 

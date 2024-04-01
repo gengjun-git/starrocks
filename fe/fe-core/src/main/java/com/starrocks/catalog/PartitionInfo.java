@@ -213,12 +213,6 @@ public class PartitionInfo implements Cloneable, Writable, GsonPreProcessable, G
         }
     }
 
-    public static PartitionInfo read(DataInput in) throws IOException {
-        PartitionInfo partitionInfo = new PartitionInfo();
-        partitionInfo.readFields(in);
-        return partitionInfo;
-    }
-
     public boolean isMultiColumnPartition() {
         return isMultiColumnPartition;
     }
@@ -228,7 +222,7 @@ public class PartitionInfo implements Cloneable, Writable, GsonPreProcessable, G
     }
 
     @NotNull
-    public List<Column> getPartitionColumns() {
+    public List<ColumnId> getPartitionColumns() {
         return Collections.emptyList();
     }
 
@@ -300,7 +294,7 @@ public class PartitionInfo implements Cloneable, Writable, GsonPreProcessable, G
         return buff.toString();
     }
 
-    public void createAutomaticShadowPartition(long partitionId, String replicateNum) throws DdlException {
+    public void createAutomaticShadowPartition(List<Column> schema, long partitionId, String replicateNum) throws DdlException {
     }
 
     public boolean isAutomaticPartition() {

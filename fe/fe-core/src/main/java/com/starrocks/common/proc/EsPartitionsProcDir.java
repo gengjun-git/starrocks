@@ -47,6 +47,7 @@ import com.starrocks.common.AnalysisException;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.connector.elasticsearch.EsShardPartitions;
+import com.starrocks.sql.common.MetaUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -107,7 +108,8 @@ public class EsPartitionsProcDir implements ProcDirInterface {
                 for (EsShardPartitions esShardPartitions : partitionedIndices.values()) {
                     List<Comparable> partitionInfo = new ArrayList<Comparable>();
                     partitionInfo.add(esShardPartitions.getIndexName());
-                    List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
+                    List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(esTable,
+                            rangePartitionInfo.getPartitionColumns());
                     List<String> colNames = new ArrayList<String>();
                     for (Column column : partitionColumns) {
                         colNames.add(column.getName());

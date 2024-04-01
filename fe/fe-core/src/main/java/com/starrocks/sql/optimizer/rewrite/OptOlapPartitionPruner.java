@@ -37,6 +37,7 @@ import com.starrocks.common.Pair;
 import com.starrocks.planner.PartitionColumnFilter;
 import com.starrocks.planner.PartitionPruner;
 import com.starrocks.planner.RangePartitionPruner;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.optimizer.Utils;
 import com.starrocks.sql.optimizer.operator.ColumnFilterConverter;
 import com.starrocks.sql.optimizer.operator.logical.LogicalOlapScanOperator;
@@ -83,9 +84,15 @@ public class OptOlapPartitionPruner {
         }
 
         if (isNeedFurtherPrune(selectedPartitionIds, logicalOlapScanOperator, partitionInfo)) {
+            List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                    table, partitionInfo.getPartitionColumns());
             PartitionColPredicateExtractor extractor = new PartitionColPredicateExtractor(
-                    (RangePartitionInfo) partitionInfo, logicalOlapScanOperator.getColumnMetaToColRefMap());
-            PartitionColPredicateEvaluator evaluator = new PartitionColPredicateEvaluator((RangePartitionInfo) partitionInfo,
+                    partitionColumns,
+                    (RangePartitionInfo) partitionInfo,
+                    logicalOlapScanOperator.getColumnMetaToColRefMap());
+            PartitionColPredicateEvaluator evaluator = new PartitionColPredicateEvaluator(
+                    partitionColumns,
+                    (RangePartitionInfo) partitionInfo,
                     selectedPartitionIds);
             selectedPartitionIds = evaluator.prunePartitions(extractor, logicalOlapScanOperator.getPredicate());
         }
@@ -121,7 +128,8 @@ public class OptOlapPartitionPruner {
         List<ScalarOperator> prunedPartitionPredicates = Lists.newArrayList();
         Map<String, PartitionColumnFilter> predicateRangeMap = Maps.newHashMap();
 
-        String columnName = partitionInfo.getPartitionColumns().get(0).getName();
+        String columnName = MetaUtils.getColumnsByPhysicalName(
+                table, partitionInfo.getPartitionColumns()).get(0).getName();
         Column column = logicalOlapScanOperator.getTable().getColumn(columnName);
 
         List<Range<PartitionKey>> partitionRanges =
@@ -257,6 +265,8 @@ public class OptOlapPartitionPruner {
             partitionIds = listPartitionInfo.getPartitionIds(false);
         }
 
+        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                olapTable, listPartitionInfo.getPartitionColumns());
         if (literalExprValuesMap != null && literalExprValuesMap.size() > 0) {
             ConcurrentNavigableMap<LiteralExpr, Set<Long>> partitionValueToIds = new ConcurrentSkipListMap<>();
             for (Map.Entry<Long, List<LiteralExpr>> entry : literalExprValuesMap.entrySet()) {
@@ -272,7 +282,7 @@ public class OptOlapPartitionPruner {
                         putValueMapItem(partitionValueToIds, partitionId, value));
             }
             // single item list partition has only one column
-            Column column = listPartitionInfo.getPartitionColumns().get(0);
+            Column column = partitionColumns.get(0);
             ColumnRefOperator columnRefOperator = operator.getColumnReference(column);
             columnToPartitionValuesMap.put(columnRefOperator, partitionValueToIds);
             columnToNullPartitions.put(columnRefOperator, new HashSet<>());
@@ -281,8 +291,7 @@ public class OptOlapPartitionPruner {
         // multiItem list partition mapper
         Map<Long, List<List<LiteralExpr>>> multiLiteralExprValues = listPartitionInfo.getMultiLiteralExprValues();
         if (multiLiteralExprValues != null && multiLiteralExprValues.size() > 0) {
-            List<Column> columnList = listPartitionInfo.getPartitionColumns();
-            for (int i = 0; i < columnList.size(); i++) {
+            for (int i = 0; i < partitionColumns.size(); i++) {
                 ConcurrentNavigableMap<LiteralExpr, Set<Long>> partitionValueToIds = new ConcurrentSkipListMap<>();
                 for (Map.Entry<Long, List<List<LiteralExpr>>> entry : multiLiteralExprValues.entrySet()) {
                     Long partitionId = entry.getKey();
@@ -298,7 +307,7 @@ public class OptOlapPartitionPruner {
                         putValueMapItem(partitionValueToIds, partitionId, value);
                     }
                 }
-                Column column = columnList.get(i);
+                Column column = partitionColumns.get(i);
                 ColumnRefOperator columnRefOperator = operator.getColumnReference(column);
                 columnToPartitionValuesMap.put(columnRefOperator, partitionValueToIds);
                 columnToNullPartitions.put(columnRefOperator, new HashSet<>());
@@ -337,7 +346,8 @@ public class OptOlapPartitionPruner {
             keyRangeById = partitionInfo.getIdToRange(false);
         }
         PartitionPruner partitionPruner = new RangePartitionPruner(keyRangeById,
-                partitionInfo.getPartitionColumns(), operator.getColumnFilters());
+                MetaUtils.getColumnsByPhysicalName(olapTable, partitionInfo.getPartitionColumns()),
+                operator.getColumnFilters());
         try {
             return partitionPruner.prune();
         } catch (Exception e) {

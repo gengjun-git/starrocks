@@ -28,6 +28,7 @@ import com.starrocks.common.AnalysisException;
 import com.starrocks.planner.DistributionPruner;
 import com.starrocks.planner.HashDistributionPruner;
 import com.starrocks.planner.PartitionColumnFilter;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.optimizer.operator.ColumnFilterConverter;
 import com.starrocks.sql.optimizer.operator.logical.LogicalOlapScanOperator;
 import org.apache.logging.log4j.LogManager;
@@ -71,7 +72,7 @@ public class OptDistributionPruner {
                     filters = operator.getColumnFilters();
                 }
                 distributionPruner = new HashDistributionPruner(index.getTabletIdsInOrder(),
-                        info.getDistributionColumns(),
+                        MetaUtils.getColumnsByPhysicalName(table, info.getDistributionColumns()),
                         filters,
                         info.getBucketNum());
                 return distributionPruner.prune();

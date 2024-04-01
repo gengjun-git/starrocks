@@ -245,25 +245,9 @@ public class ExpressionRangePartitionInfoV2 extends RangePartitionInfo
         this.partitionExprs = partitionExprs;
     }
 
-    public List<String> getSerializedPartitionExprs() {
-        return serializedPartitionExprs;
-    }
-
-    public void setSerializedPartitionExprs(List<String> serializedPartitionExprs) {
-        this.serializedPartitionExprs = serializedPartitionExprs;
-    }
-
     @Override
     public boolean isAutomaticPartition() {
         return automaticPartition;
-    }
-
-    public void setAutomaticPartition(Boolean automaticPartition) {
-        this.automaticPartition = automaticPartition;
-    }
-
-    public List<Type> getSourcePartitionTypes() {
-        return sourcePartitionTypes;
     }
 
     public void setSourcePartitionTypes(List<Type> sourcePartitionTypes) {

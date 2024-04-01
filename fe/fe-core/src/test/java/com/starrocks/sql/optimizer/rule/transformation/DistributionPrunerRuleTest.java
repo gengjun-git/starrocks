@@ -27,6 +27,7 @@ import com.starrocks.catalog.HashDistributionInfo;
 import com.starrocks.catalog.MaterializedIndex;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.ScalarType;
 import com.starrocks.catalog.Type;
 import com.starrocks.planner.PartitionColumnFilter;
@@ -49,6 +50,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 
@@ -69,6 +71,9 @@ public class DistributionPrunerRuleTest {
                 new Column("channel", Type.CHAR, false),
                 new Column("shop_type", Type.CHAR, false)
         );
+        List<ColumnId> columnNames = columns.stream()
+                .map(column -> ColumnId.create(column.getName()))
+                .collect(Collectors.toList());
 
         // filters
         PartitionColumnFilter dealDateFilter = new PartitionColumnFilter();
@@ -169,7 +174,7 @@ public class DistributionPrunerRuleTest {
                 result = tabletIds;
 
                 distributionInfo.getDistributionColumns();
-                result = columns;
+                result = columnNames;
 
                 distributionInfo.getType();
                 result = DistributionInfo.DistributionInfoType.HASH;

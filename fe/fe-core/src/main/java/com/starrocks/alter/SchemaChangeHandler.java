@@ -64,6 +64,7 @@ import com.starrocks.catalog.MaterializedIndexMeta;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.OlapTable.OlapTableState;
 import com.starrocks.catalog.Partition;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PhysicalPartition;
 import com.starrocks.catalog.Replica;
 import com.starrocks.catalog.SchemaInfo;
@@ -106,6 +107,7 @@ import com.starrocks.sql.ast.ModifyColumnClause;
 import com.starrocks.sql.ast.ModifyTablePropertiesClause;
 import com.starrocks.sql.ast.OptimizeClause;
 import com.starrocks.sql.ast.ReorderColumnsClause;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.task.AgentBatchTask;
 import com.starrocks.task.AgentTaskExecutor;
 import com.starrocks.task.AgentTaskQueue;
@@ -343,8 +345,9 @@ public class SchemaChangeHandler extends AlterHandler {
             }
         }
 
+        ColumnId dropColPhysicalName = olapTable.getColumn(dropColName).getColumnId();
         // Remove all Index that contains a column with the name dropColName.
-        indexes.removeIf(index -> index.getColumns().stream().anyMatch(c -> c.equalsIgnoreCase(dropColName)));
+        indexes.removeIf(index -> index.getColumns().stream().anyMatch(c -> c.equalsIgnoreCase(dropColPhysicalName)));
 
         if (targetIndexName == null) {
             // if not specify rollup index, column should be dropped from both base and rollup indexes.
@@ -453,12 +456,12 @@ public class SchemaChangeHandler extends AlterHandler {
             }
         }
 
-        if (modColumn.generatedColumnExpr() == null && olapTable.hasGeneratedColumn()) {
+        if (modColumn.isGeneratedColumn() && olapTable.hasGeneratedColumn()) {
             for (Column column : olapTable.getFullSchema()) {
                 if (!column.isGeneratedColumn()) {
                     continue;
                 }
-                List<SlotRef> slots = column.getGeneratedColumnRef();
+                List<SlotRef> slots = column.getGeneratedColumnRef(olapTable);
                 for (SlotRef slot : slots) {
                     if (slot.getColumnName().equals(modColumn.getName())) {
                         throw new DdlException("Do not support modify column: " + modColumn.getName() +
@@ -883,7 +886,7 @@ public class SchemaChangeHandler extends AlterHandler {
         // check if the new column already exist in physical column.
         // do not support adding new column which already exist in physical column.
         Optional<Column> foundPhysicalColumn = olapTable.getBaseSchema().stream()
-                .filter(c -> c.getDirectPhysicalName().equalsIgnoreCase(newColName)).findFirst();
+                .filter(c -> c.getColumnId().getId().equalsIgnoreCase(newColName)).findFirst();
         if (foundPhysicalColumn.isPresent()) {
             throw new DdlException(
                     "Can not add column which already exists in physical column: " + newColName
@@ -1130,7 +1133,7 @@ public class SchemaChangeHandler extends AlterHandler {
 
         // check bloom filter has change
         boolean hasBfChange = false;
-        Set<String> oriBfColumns = olapTable.getCopiedBfColumns();
+        Set<String> oriBfColumns = olapTable.getBfColumnNames();
         double oriBfFpp = olapTable.getBfFpp();
         if (bfColumns != null) {
             if (bfFpp == 0) {
@@ -1178,7 +1181,7 @@ public class SchemaChangeHandler extends AlterHandler {
             bfFpp = 0;
         }
 
-        BloomFilterIndexUtil.analyseBfWithNgramBf(newSet, bfColumns);
+        BloomFilterIndexUtil.analyseBfWithNgramBf(olapTable, newSet, bfColumns);
 
         // property 3: timeout
         long timeoutSecond = PropertyAnalyzer.analyzeTimeout(propertyMap, Config.alter_table_timeout_second);
@@ -1338,7 +1341,8 @@ public class SchemaChangeHandler extends AlterHandler {
             return;
         }
 
-        List<Column> partitionColumns = olapTable.getPartitionInfo().getPartitionColumns();
+        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(olapTable,
+                olapTable.getPartitionInfo().getPartitionColumns());
         for (Column partitionCol : partitionColumns) {
             String colName = partitionCol.getName();
             Optional<Column> col = alterSchema.stream().filter(c -> c.nameEquals(colName, true)).findFirst();
@@ -1365,7 +1369,8 @@ public class SchemaChangeHandler extends AlterHandler {
             return;
         }
 
-        List<Column> distributionColumns = olapTable.getDefaultDistributionInfo().getDistributionColumns();
+        List<Column> distributionColumns = MetaUtils.getColumnsByPhysicalName(
+                olapTable, olapTable.getDefaultDistributionInfo().getDistributionColumns());
         for (Column distributionCol : distributionColumns) {
             String colName = distributionCol.getName();
             Optional<Column> col = alterSchema.stream().filter(c -> c.nameEquals(colName, true)).findFirst();
@@ -1556,7 +1561,7 @@ public class SchemaChangeHandler extends AlterHandler {
                     if (!olapTable.dynamicPartitionExists()) {
                         try {
                             DynamicPartitionUtil
-                                    .checkInputDynamicPartitionProperties(properties, olapTable.getPartitionInfo());
+                                    .checkInputDynamicPartitionProperties(olapTable, properties, olapTable.getPartitionInfo());
                         } catch (DdlException e) {
                             // This table is not a dynamic partition table and didn't supply all dynamic partition properties
                             throw new DdlException("Table " + db.getOriginName() + "." +
@@ -2400,7 +2405,7 @@ public class SchemaChangeHandler extends AlterHandler {
                 throw new DdlException("index `" + indexDef.getIndexName() + "` already exist.");
             }
             Set<String> existedIdxColSet = Sets.newTreeSet(String.CASE_INSENSITIVE_ORDER);
-            existedIdxColSet.addAll(existedIdx.getColumns());
+            existedIdxColSet.addAll(MetaUtils.getColumnNamesByPhysicalNames(olapTable, existedIdx.getColumns()));
             if (newColset.equals(existedIdxColSet)) {
                 throw new DdlException(
                         "index for columns (" + String.join(",", indexDef.getColumns()) + " ) already exist.");

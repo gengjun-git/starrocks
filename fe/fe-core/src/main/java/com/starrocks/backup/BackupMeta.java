@@ -120,34 +120,12 @@ public class BackupMeta implements Writable, GsonPostProcessable {
     }
 
     public static BackupMeta read(DataInput in) throws IOException {
-        if (GlobalStateMgr.getCurrentStateStarRocksMetaVersion() >= StarRocksFEMetaVersion.VERSION_4) {
-            return GsonUtils.GSON.fromJson(Text.readString(in), BackupMeta.class);
-        } else {
-            BackupMeta backupMeta = new BackupMeta();
-            backupMeta.readFields(in);
-            return backupMeta;
-        }
+        return GsonUtils.GSON.fromJson(Text.readString(in), BackupMeta.class);
     }
 
     @Override
     public void write(DataOutput out) throws IOException {
-        if (FeConstants.STARROCKS_META_VERSION >= StarRocksFEMetaVersion.VERSION_4) {
-            Text.writeString(out, GsonUtils.GSON.toJson(this));
-        } else {
-            out.writeInt(tblNameMap.size());
-            for (Table table : tblNameMap.values()) {
-                table.write(out);
-            }
-        }
-    }
-
-    public void readFields(DataInput in) throws IOException {
-        int size = in.readInt();
-        for (int i = 0; i < size; i++) {
-            Table tbl = Table.read(in);
-            tblNameMap.put(tbl.getName(), tbl);
-            tblIdMap.put(tbl.getId(), tbl);
-        }
+        Text.writeString(out, GsonUtils.GSON.toJson(this));
     }
 
     @Override

@@ -24,6 +24,7 @@ import com.starrocks.catalog.MaterializedIndexMeta;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.PartitionInfo;
 import com.starrocks.catalog.RangePartitionInfo;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.OptimizerContext;
 import com.starrocks.sql.optimizer.Utils;
@@ -88,9 +89,8 @@ public class RemoveAggregationFromAggTable extends TransformationRule {
         PartitionInfo partitionInfo = olapTable.getPartitionInfo();
         List<String> partitionColumnNames = Lists.newArrayList();
         if (partitionInfo instanceof RangePartitionInfo) {
-            RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) partitionInfo;
-            partitionColumnNames.addAll(rangePartitionInfo.getPartitionColumns().stream()
-                    .map(column -> column.getName().toLowerCase()).collect(Collectors.toList()));
+            partitionColumnNames.addAll(MetaUtils.getColumnNamesByPhysicalNames(
+                    olapTable, partitionInfo.getPartitionColumns()));
         }
 
         List<String> distributionColumnNames = olapTable.getDistributionColumnNames().stream()

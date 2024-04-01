@@ -176,7 +176,7 @@ public class ExpressionPartitionDesc extends PartitionDesc {
 
         for (SingleRangePartitionDesc desc : getRangePartitionDesc().getSingleRangePartitionDescs()) {
             long partitionId = partitionNameToId.get(desc.getPartitionName());
-            partitionInfo.handleNewSinglePartitionDesc(desc, partitionId, isTemp);
+            partitionInfo.handleNewSinglePartitionDesc(schema, desc, partitionId, isTemp);
         }
 
         return partitionInfo;

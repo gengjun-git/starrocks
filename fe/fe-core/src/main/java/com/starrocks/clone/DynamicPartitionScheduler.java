@@ -76,6 +76,7 @@ import com.starrocks.sql.ast.PartitionKeyDesc;
 import com.starrocks.sql.ast.PartitionValue;
 import com.starrocks.sql.ast.RandomDistributionDesc;
 import com.starrocks.sql.ast.SingleRangePartitionDesc;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.statistic.StatsConstants;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -278,10 +279,8 @@ public class DynamicPartitionScheduler extends FrontendDaemon {
                 DistributionDesc distributionDesc = null;
                 if (distributionInfo instanceof HashDistributionInfo) {
                     HashDistributionInfo hashDistributionInfo = (HashDistributionInfo) distributionInfo;
-                    List<String> distColumnNames = new ArrayList<>();
-                    for (Column distributionColumn : hashDistributionInfo.getDistributionColumns()) {
-                        distColumnNames.add(distributionColumn.getName());
-                    }
+                    List<String> distColumnNames = MetaUtils.getColumnNamesByPhysicalNames(
+                            olapTable, hashDistributionInfo.getDistributionColumns());
                     distributionDesc = new HashDistributionDesc(dynamicPartitionProperty.getBuckets(),
                             distColumnNames);
                 } else if (distributionInfo instanceof  RandomDistributionInfo) {
@@ -415,7 +414,8 @@ public class DynamicPartitionScheduler extends FrontendDaemon {
             }
 
             try {
-                Column partitionColumn = rangePartitionInfo.getPartitionColumns().get(0);
+                Column partitionColumn = MetaUtils.getColumnsByPhysicalName(olapTable,
+                        rangePartitionInfo.getPartitionColumns()).get(0);
                 String partitionFormat = DynamicPartitionUtil.getPartitionFormat(partitionColumn);
                 if (!skipAddPartition) {
                     addPartitionClauses = getAddPartitionClause(db, olapTable, partitionColumn, partitionFormat);
@@ -550,7 +550,8 @@ public class DynamicPartitionScheduler extends FrontendDaemon {
         }
         ArrayList<DropPartitionClause> dropPartitionClauses = new ArrayList<>();
         RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) (olapTable.getPartitionInfo());
-        List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
+        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(olapTable,
+                rangePartitionInfo.getPartitionColumns());
         Preconditions.checkArgument(partitionColumns.size() == 1);
         Type partitionType = partitionColumns.get(0).getType();
         PartitionKey ttlLowerBound = null;
@@ -588,7 +589,8 @@ public class DynamicPartitionScheduler extends FrontendDaemon {
 
         ArrayList<DropPartitionClause> dropPartitionClauses = new ArrayList<>();
         RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) (olapTable.getPartitionInfo());
-        List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
+        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(olapTable,
+                rangePartitionInfo.getPartitionColumns());
 
         // Currently, materialized views and automatically created partition tables
         // only support single-column partitioning.

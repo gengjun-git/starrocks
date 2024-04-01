@@ -251,24 +251,4 @@ public class BrokerTable extends Table {
             Text.writeString(out, prop.getValue());
         }
     }
-
-    public void readFields(DataInput in) throws IOException {
-        super.readFields(in);
-
-        brokerName = Text.readString(in);
-        int size = in.readInt();
-        paths = Lists.newArrayList();
-        for (int i = 0; i < size; i++) {
-            paths.add(Text.readString(in));
-        }
-        columnSeparator = Text.readString(in);
-        rowDelimiter = Text.readString(in);
-        brokerProperties = Maps.newHashMap();
-        size = in.readInt();
-        for (int i = 0; i < size; i++) {
-            String key = Text.readString(in);
-            String val = Text.readString(in);
-            brokerProperties.put(key, val);
-        }
-    }
 }

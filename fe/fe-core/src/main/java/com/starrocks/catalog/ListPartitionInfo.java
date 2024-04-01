@@ -33,12 +33,12 @@ import com.starrocks.sql.ast.PartitionDesc;
 import com.starrocks.sql.ast.PartitionValue;
 import com.starrocks.sql.ast.SingleItemListPartitionDesc;
 import com.starrocks.sql.ast.SinglePartitionDesc;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.thrift.TStorageMedium;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -58,7 +58,12 @@ public class ListPartitionInfo extends PartitionInfo {
     private static final Logger LOG = LogManager.getLogger(ListPartitionInfo.class);
 
     @SerializedName("partitionColumns")
-    private List<Column> partitionColumns;
+    @Deprecated // Use partitionPhysicalNames to get columns, this is reserved for rollback compatibility only.
+    protected List<Column> _partitionColumns = Lists.newArrayList();
+
+    @SerializedName("colNames")
+    protected List<ColumnId> partitionColumnNames = Lists.newArrayList();
+
     //serialize values for statement like `PARTITION p1 VALUES IN (("2022-04-01", "beijing"))`
     @SerializedName("idToMultiValues")
     private Map<Long, List<List<String>>> idToMultiValues;
@@ -75,7 +80,8 @@ public class ListPartitionInfo extends PartitionInfo {
     public ListPartitionInfo(PartitionType partitionType,
                              List<Column> partitionColumns) {
         super(partitionType);
-        this.partitionColumns = Objects.requireNonNull(partitionColumns, "partitionColumns is null");
+        this._partitionColumns = Objects.requireNonNull(partitionColumns, "partitionColumns is null");
+        this.partitionColumnNames = partitionColumns.stream().map(Column::getColumnId).collect(Collectors.toList());
         this.setIsMultiColumnPartition();
 
         this.idToValues = new HashMap<>();
@@ -91,7 +97,8 @@ public class ListPartitionInfo extends PartitionInfo {
         this.idToLiteralExprValues = new HashMap<>();
         this.idToMultiValues = new HashMap<>();
         this.idToMultiLiteralExprValues = new HashMap<>();
-        this.partitionColumns = new ArrayList<>();
+        this._partitionColumns = new ArrayList<>();
+        this.partitionColumnNames = new ArrayList<>();
         this.idToIsTempPartition = new HashMap<>();
     }
 
@@ -103,11 +110,11 @@ public class ListPartitionInfo extends PartitionInfo {
         this.idToIsTempPartition.put(partitionId, isTemp);
     }
 
-    public void setLiteralExprValues(long partitionId, List<String> values) throws AnalysisException {
+    public void setLiteralExprValues(Map<ColumnId, Column> nameToColumn, long partitionId, List<String> values) throws AnalysisException {
         List<LiteralExpr> partitionValues = new ArrayList<>(values.size());
         for (String value : values) {
             //there only one partition column for single partition list
-            Type type = this.partitionColumns.get(0).getType();
+            Type type = nameToColumn.get(partitionColumnNames.get(0)).getType();
             LiteralExpr partitionValue = new PartitionValue(value).getValue(type);
             partitionValues.add(partitionValue);
         }
@@ -128,11 +135,12 @@ public class ListPartitionInfo extends PartitionInfo {
         return partitionIds;
     }
 
-    public void setBatchLiteralExprValues(Map<Long, List<String>> batchValues) throws AnalysisException {
+    public void setBatchLiteralExprValues(Map<ColumnId, Column> nameToColumn,
+                                          Map<Long, List<String>> batchValues) throws AnalysisException {
         for (Map.Entry<Long, List<String>> entry : batchValues.entrySet()) {
             long partitionId = entry.getKey();
             List<String> values = entry.getValue();
-            this.setLiteralExprValues(partitionId, values);
+            this.setLiteralExprValues(nameToColumn, partitionId, values);
         }
     }
 
@@ -153,13 +161,15 @@ public class ListPartitionInfo extends PartitionInfo {
         this.automaticPartition = automaticPartition;
     }
 
-    public void setMultiLiteralExprValues(long partitionId, List<List<String>> multiValues) throws AnalysisException {
+    public void setMultiLiteralExprValues(Map<ColumnId, Column> nameToColumn, long partitionId,
+                                          List<List<String>> multiValues) throws AnalysisException {
         List<List<LiteralExpr>> multiPartitionValues = new ArrayList<>(multiValues.size());
+        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(nameToColumn, this.partitionColumnNames);
         for (List<String> values : multiValues) {
             List<LiteralExpr> partitionValues = new ArrayList<>(values.size());
             for (int i = 0; i < values.size(); i++) {
                 String value = values.get(i);
-                Type type = this.partitionColumns.get(i).getType();
+                Type type = partitionColumns.get(i).getType();
                 LiteralExpr partitionValue = new PartitionValue(value).getValue(type);
                 partitionValues.add(partitionValue);
             }
@@ -172,12 +182,13 @@ public class ListPartitionInfo extends PartitionInfo {
         this.idToMultiLiteralExprValues.put(partitionId, multiValues);
     }
 
-    public void setBatchMultiLiteralExprValues(Map<Long, List<List<String>>> batchMultiValues)
+    public void setBatchMultiLiteralExprValues(Map<ColumnId, Column> nameToColumn,
+                                               Map<Long, List<List<String>>> batchMultiValues)
             throws AnalysisException {
         for (Map.Entry<Long, List<List<String>>> entry : batchMultiValues.entrySet()) {
             long partitionId = entry.getKey();
             List<List<String>> multiValues = entry.getValue();
-            this.setMultiLiteralExprValues(partitionId, multiValues);
+            this.setMultiLiteralExprValues(nameToColumn, partitionId, multiValues);
         }
     }
 
@@ -186,7 +197,7 @@ public class ListPartitionInfo extends PartitionInfo {
     }
 
     private void setIsMultiColumnPartition() {
-        super.isMultiColumnPartition = this.partitionColumns.size() > 1;
+        super.isMultiColumnPartition = this.partitionColumnNames.size() > 1;
     }
 
     public Map<Long, List<List<String>>> getIdToMultiValues() {
@@ -209,27 +220,15 @@ public class ListPartitionInfo extends PartitionInfo {
         Text.writeString(out, json);
     }
 
-    /**
-     * deserialize data from log
-     *
-     * @param in
-     * @throws IOException
-     */
-    public static PartitionInfo read(DataInput in) throws IOException {
-        String json = Text.readString(in);
-        return GsonUtils.GSON.fromJson(json, ListPartitionInfo.class);
-    }
-
-    @Override
-    public void gsonPostProcess() throws IOException {
+    public void updateLiteralExprValues(Map<ColumnId, Column> nameToColumn) {
         try {
             Map<Long, List<String>> idToValuesMap = this.getIdToValues();
             for (Map.Entry<Long, List<String>> entry : idToValuesMap.entrySet()) {
-                this.setLiteralExprValues(entry.getKey(), entry.getValue());
+                this.setLiteralExprValues(nameToColumn, entry.getKey(), entry.getValue());
             }
             Map<Long, List<List<String>>> idToMultiValuesMap = this.getIdToMultiValues();
             for (Map.Entry<Long, List<List<String>>> entry : idToMultiValuesMap.entrySet()) {
-                this.setMultiLiteralExprValues(entry.getKey(), entry.getValue());
+                this.setMultiLiteralExprValues(nameToColumn, entry.getKey(), entry.getValue());
             }
         } catch (AnalysisException e) {
             LOG.error("deserialize PartitionInfo error", e);
@@ -249,7 +248,7 @@ public class ListPartitionInfo extends PartitionInfo {
             sb.append("LIST");
         }
         sb.append("(");
-        sb.append(partitionColumns.stream()
+        sb.append(MetaUtils.getColumnsByPhysicalName(table, partitionColumnNames).stream()
                 .map(item -> "`" + item.getName() + "`")
                 .collect(Collectors.joining(",")));
         sb.append(")");
@@ -328,8 +327,8 @@ public class ListPartitionInfo extends PartitionInfo {
     }
 
     @Override
-    public List<Column> getPartitionColumns() {
-        return this.partitionColumns;
+    public List<ColumnId> getPartitionColumns() {
+        return this.partitionColumnNames;
     }
 
     public String getValuesFormat(long partitionId) {
@@ -348,7 +347,8 @@ public class ListPartitionInfo extends PartitionInfo {
         return "";
     }
 
-    public void handleNewListPartitionDescs(List<Pair<Partition, PartitionDesc>> partitionList,
+    public void handleNewListPartitionDescs(Map<ColumnId, Column> nameToColumn,
+                                            List<Pair<Partition, PartitionDesc>> partitionList,
                                             Set<String> existPartitionNameSet, boolean isTempPartition)
             throws DdlException {
         try {
@@ -367,12 +367,13 @@ public class ListPartitionInfo extends PartitionInfo {
                         MultiItemListPartitionDesc multiItemListPartitionDesc =
                                 (MultiItemListPartitionDesc) partitionDesc;
                         this.idToMultiValues.put(partitionId, multiItemListPartitionDesc.getMultiValues());
-                        this.setMultiLiteralExprValues(partitionId, multiItemListPartitionDesc.getMultiValues());
+                        this.setMultiLiteralExprValues(nameToColumn, partitionId,
+                                multiItemListPartitionDesc.getMultiValues());
                     } else if (partitionDesc instanceof SingleItemListPartitionDesc) {
                         SingleItemListPartitionDesc singleItemListPartitionDesc =
                                 (SingleItemListPartitionDesc) partitionDesc;
                         this.idToValues.put(partitionId, singleItemListPartitionDesc.getValues());
-                        this.setLiteralExprValues(partitionId, singleItemListPartitionDesc.getValues());
+                        this.setLiteralExprValues(nameToColumn, partitionId, singleItemListPartitionDesc.getValues());
                     } else {
                         throw new DdlException(
                                 "add list partition only support single item or multi item list partition now");
@@ -386,7 +387,8 @@ public class ListPartitionInfo extends PartitionInfo {
         }
     }
 
-    public void unprotectHandleNewPartitionDesc(ListPartitionPersistInfo partitionPersistInfo)
+    public void unprotectHandleNewPartitionDesc(Map<ColumnId, Column> nameToColumn,
+                                                ListPartitionPersistInfo partitionPersistInfo)
             throws AnalysisException {
         Partition partition = partitionPersistInfo.getPartition();
         long partitionId = partition.getId();
@@ -399,13 +401,13 @@ public class ListPartitionInfo extends PartitionInfo {
         List<List<String>> multiValues = partitionPersistInfo.getMultiValues();
         if (multiValues != null && multiValues.size() > 0) {
             this.idToMultiValues.put(partitionId, multiValues);
-            this.setMultiLiteralExprValues(partitionId, multiValues);
+            this.setMultiLiteralExprValues(nameToColumn, partitionId, multiValues);
         }
 
         List<String> values = partitionPersistInfo.getValues();
         if (values != null && values.size() > 0) {
             this.idToValues.put(partitionId, values);
-            this.setLiteralExprValues(partitionId, values);
+            this.setLiteralExprValues(nameToColumn, partitionId, values);
         }
     }
 
@@ -426,24 +428,24 @@ public class ListPartitionInfo extends PartitionInfo {
         idToIsTempPartition.computeIfPresent(tempPartitionId, (k, v) -> false);
     }
 
-    public void addPartition(long partitionId, DataProperty dataProperty, short replicationNum, boolean isInMemory,
+    public void addPartition(Map<ColumnId, Column> nameToColumn, long partitionId, DataProperty dataProperty, short replicationNum, boolean isInMemory,
                              DataCacheInfo dataCacheInfo, List<String> values,
                              List<List<String>> multiValues) throws AnalysisException {
         super.addPartition(partitionId, dataProperty, replicationNum, isInMemory, dataCacheInfo);
         if (multiValues != null && multiValues.size() > 0) {
             this.idToMultiValues.put(partitionId, multiValues);
-            this.setMultiLiteralExprValues(partitionId, multiValues);
+            this.setMultiLiteralExprValues(nameToColumn, partitionId, multiValues);
         }
         if (values != null && values.size() > 0) {
             this.idToValues.put(partitionId, values);
-            this.setLiteralExprValues(partitionId, values);
+            this.setLiteralExprValues(nameToColumn, partitionId, values);
         }
         this.idToStorageCacheInfo.put(partitionId, dataCacheInfo);
         idToIsTempPartition.put(partitionId, false);
     }
 
     @Override
-    public void createAutomaticShadowPartition(long partitionId, String replicateNum) {
+    public void createAutomaticShadowPartition(List<Column> schema, long partitionId, String replicateNum) {
         idToValues.put(partitionId, Collections.emptyList());
         idToDataProperty.put(partitionId, new DataProperty(TStorageMedium.HDD));
         idToReplicationNum.put(partitionId, Short.valueOf(replicateNum));
@@ -472,7 +474,7 @@ public class ListPartitionInfo extends PartitionInfo {
     @Override
     public Object clone() {
         ListPartitionInfo info = (ListPartitionInfo) super.clone();
-        info.partitionColumns = Lists.newArrayList(this.partitionColumns);
+        info._partitionColumns = Lists.newArrayList(this._partitionColumns);
         info.idToMultiValues = Maps.newHashMap(this.idToMultiValues);
         info.idToMultiLiteralExprValues = Maps.newHashMap(this.idToMultiLiteralExprValues);
         info.idToValues = Maps.newHashMap(this.idToValues);
@@ -480,5 +482,13 @@ public class ListPartitionInfo extends PartitionInfo {
         info.idToIsTempPartition = Maps.newHashMap(this.idToIsTempPartition);
         info.automaticPartition = this.automaticPartition;
         return info;
+    }
+
+    @Override
+    public void gsonPostProcess() throws IOException {
+        super.gsonPostProcess();
+        if (partitionColumnNames.size() <= 0) {
+            partitionColumnNames = _partitionColumns.stream().map(Column::getColumnId).collect(Collectors.toList());
+        }
     }
 }

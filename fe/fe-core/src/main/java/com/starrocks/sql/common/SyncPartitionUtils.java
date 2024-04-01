@@ -724,8 +724,8 @@ public class SyncPartitionUtils {
 
         if (hasPartitionRange) {
             Set<String> result = Sets.newHashSet();
-            Column partitionColumn =
-                    ((RangePartitionInfo) materializedView.getPartitionInfo()).getPartitionColumns().get(0);
+            Column partitionColumn = MetaUtils.getColumnsByPhysicalName(
+                    materializedView, materializedView.getPartitionInfo().getPartitionColumns()).get(0);
             Range<PartitionKey> rangeToInclude = createRange(start, end, partitionColumn);
             Map<String, Range<PartitionKey>> rangeMap = materializedView.getValidRangePartitionMap(partitionTTLNumber);
             for (Map.Entry<String, Range<PartitionKey>> entry : rangeMap.entrySet()) {

@@ -49,7 +49,6 @@ import com.starrocks.sql.common.StarRocksPlannerException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.List;
@@ -179,14 +178,5 @@ public class View extends Table {
         super.write(out);
         Text.writeString(out, originalViewDef);
         Text.writeString(out, inlineViewDef);
-    }
-
-    public void readFields(DataInput in) throws IOException {
-        super.readFields(in);
-        // just do not want to modify the meta version, so leave originalViewDef here but set it as empty
-        originalViewDef = Text.readString(in);
-        originalViewDef = "";
-        inlineViewDef = Text.readString(in);
-        inlineViewDef = inlineViewDef.replaceAll("default_cluster:", "");
     }
 }

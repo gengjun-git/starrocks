@@ -33,6 +33,7 @@ import com.starrocks.meta.MetaContext;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.ast.DistributionDesc;
 import com.starrocks.sql.ast.HashDistributionDesc;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.system.Backend;
 import com.starrocks.system.Backend.BackendState;
 import com.starrocks.system.SystemInfoService;
@@ -343,18 +344,6 @@ public class ExternalOlapTable extends OlapTable {
     }
 
     @Override
-    public void readFields(DataInput in) throws IOException {
-        super.readFields(in);
-        String jsonStr = Text.readString(in);
-        JsonObject obj = JsonParser.parseString(jsonStr).getAsJsonObject();
-        id = obj.getAsJsonPrimitive(JSON_KEY_TABLE_ID).getAsLong();
-        name = obj.getAsJsonPrimitive(JSON_KEY_TABLE_NAME).getAsString();
-        dbId = obj.getAsJsonPrimitive(JSON_KEY_DB_ID).getAsLong();
-        externalTableInfo = new ExternalTableInfo();
-        externalTableInfo.fromJsonObj(obj);
-    }
-
-    @Override
     public void copyOnlyForQuery(OlapTable olapTable) {
         super.copyOnlyForQuery(olapTable);
         ExternalOlapTable externalOlapTable = (ExternalOlapTable) olapTable;
@@ -405,7 +394,8 @@ public class ExternalOlapTable extends OlapTable {
         if (meta.isSetIndex_infos()) {
             List<Index> indexList = new ArrayList<>();
             for (TIndexInfo indexInfo : meta.getIndex_infos()) {
-                Index index = new Index(indexInfo.getIndex_name(), indexInfo.getColumns(),
+                Index index = new Index(indexInfo.getIndex_name(),
+                        MetaUtils.getColumnPhysicalNamesByNames(this, indexInfo.getColumns()),
                         IndexDef.IndexType.valueOf(indexInfo.getIndex_type()), indexInfo.getComment(),
                         Collections.emptyMap());
                 indexList.add(index);

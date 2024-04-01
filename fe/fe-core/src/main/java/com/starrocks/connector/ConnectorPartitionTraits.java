@@ -50,6 +50,7 @@ import com.starrocks.catalog.Type;
 import com.starrocks.common.AnalysisException;
 import com.starrocks.connector.iceberg.IcebergPartitionUtils;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.sql.common.MetaUtils;
 import org.apache.commons.lang.NotImplementedException;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Snapshot;
@@ -379,7 +380,8 @@ public abstract class ConnectorPartitionTraits {
         }
 
         public List<Column> getPartitionColumns() {
-            return ((OlapTable) table).getPartitionInfo().getPartitionColumns();
+            return MetaUtils.getColumnsByPhysicalName(table,
+                    ((OlapTable) table).getPartitionInfo().getPartitionColumns());
         }
     }
 

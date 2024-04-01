@@ -85,18 +85,6 @@ public class CreateTableInfo implements Writable {
         table.write(out);
     }
 
-    public void readFields(DataInput in) throws IOException {
-        dbName = ClusterNamespace.getNameFromFullName(Text.readString(in));
-
-        table = Table.read(in);
-    }
-
-    public static CreateTableInfo read(DataInput in) throws IOException {
-        CreateTableInfo createTableInfo = new CreateTableInfo();
-        createTableInfo.readFields(in);
-        return createTableInfo;
-    }
-
     @Override
     public int hashCode() {
         return Objects.hashCode(dbName, table);

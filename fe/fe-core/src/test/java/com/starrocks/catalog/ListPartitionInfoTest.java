@@ -115,57 +115,6 @@ public class ListPartitionInfoTest {
     }
 
     @Test
-    public void testWriteOutAndReadIn() throws IOException,
-            NotImplementedException, ParseException {
-        // Write objects to file
-        File file = new File("./test_serial.log");
-        if (file.exists()) {
-            file.delete();
-        }
-        file.createNewFile();
-        DataOutputStream out = new DataOutputStream(new FileOutputStream(file));
-        this.listPartitionInfo.write(out);
-        out.flush();
-        out.close();
-
-        // Read object from file
-        DataInputStream in = new DataInputStream(new FileInputStream(file));
-        PartitionInfo partitionInfo = this.listPartitionInfo.read(in);
-
-        // Asset the type
-        Assert.assertEquals(partitionInfo.getType(), PartitionType.LIST);
-
-        // Asset the partition p1 properties
-        List<Column> columnList = partitionInfo.getPartitionColumns();
-        this.assertPartitionProperties((ListPartitionInfo) partitionInfo,
-                columnList.get(0), "province", 10001L);
-
-        file.delete();
-    }
-
-    private void assertPartitionProperties(ListPartitionInfo partitionInfo, Column column,
-                                           String partitionName, long partitionId) throws ParseException {
-        Assert.assertEquals(partitionName, column.getName());
-        Assert.assertEquals(Type.VARCHAR, column.getType());
-
-        DataProperty dataProperty = partitionInfo.getDataProperty(partitionId);
-        Assert.assertEquals(TStorageMedium.SSD, dataProperty.getStorageMedium());
-        DateFormat sf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        long time = sf.parse("2122-07-09 12:12:12").getTime();
-        Assert.assertEquals(time, dataProperty.getCooldownTimeMs());
-
-        Assert.assertEquals(1, partitionInfo.getReplicationNum(partitionId));
-        Assert.assertEquals(true, partitionInfo.getIsInMemory(partitionId));
-
-        List<String> valuesFromGet = partitionInfo.getIdToValues().get(partitionId);
-        List<String> values = this.listPartitionInfo.getIdToValues().get(partitionId);
-        Assert.assertEquals(valuesFromGet.size(), values.size());
-        for (int i = 0; i < valuesFromGet.size(); i++) {
-            Assert.assertEquals(valuesFromGet.get(i), values.get(i));
-        }
-    }
-
-    @Test
     public void testMultiListPartition(@Injectable OlapTable dstTable) throws UserException {
 
         DescriptorTable descTable = new DescriptorTable();

@@ -20,12 +20,16 @@ import com.starrocks.analysis.FunctionName;
 import com.starrocks.analysis.ParseNode;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.Database;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.ScalarType;
+import com.starrocks.analysis.TableName;
+import com.starrocks.catalog.Table;
 import com.starrocks.common.AlreadyExistsException;
 import com.starrocks.common.Config;
 import com.starrocks.common.DdlException;
 import com.starrocks.common.ErrorCode;
 import com.starrocks.common.ErrorReport;
+import com.starrocks.common.ErrorReportException;
 import com.starrocks.common.MetaNotFoundException;
 import com.starrocks.common.UserException;
 import com.starrocks.datacache.DataCacheMgr;
@@ -137,6 +141,7 @@ import com.starrocks.sql.ast.UninstallPluginStmt;
 import com.starrocks.sql.ast.pipe.AlterPipeStmt;
 import com.starrocks.sql.ast.pipe.CreatePipeStmt;
 import com.starrocks.sql.ast.pipe.DropPipeStmt;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.statistic.AnalyzeJob;
 import com.starrocks.statistic.ExternalAnalyzeJob;
 import com.starrocks.statistic.NativeAnalyzeJob;
@@ -148,6 +153,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -841,11 +847,21 @@ public class DDLStmtExecutor {
         @Override
         public ShowResultSet visitCreateAnalyzeJobStatement(CreateAnalyzeJobStmt stmt, ConnectContext context) {
             ErrorReport.wrapWithRuntimeException(() -> {
+                TableName tableName = stmt.getTableName();
+                Table table = MetaUtils.getTable(tableName.getCatalog(), tableName.getDb(), tableName.getTbl());
+                List<ColumnId> columnNames = new ArrayList<>(stmt.getColumnNames().size());
+                for (String name : stmt.getColumnNames()) {
+                    Column column = table.getColumn(name);
+                    if (column == null) {
+                        ErrorReportException.report(ErrorCode.ERR_BAD_FIELD_ERROR, name, table.getName());
+                    }
+                    columnNames.add(column.getColumnId());
+                }
                 AnalyzeJob analyzeJob;
                 if (stmt.isNative()) {
                     analyzeJob = new NativeAnalyzeJob(stmt.getDbId(),
                             stmt.getTableId(),
-                            stmt.getColumnNames(),
+                            columnNames,
                             stmt.getColumnTypes(),
                             stmt.isSample() ? StatsConstants.AnalyzeType.SAMPLE : StatsConstants.AnalyzeType.FULL,
                             StatsConstants.ScheduleType.SCHEDULE,
@@ -853,13 +869,14 @@ public class DDLStmtExecutor {
                             LocalDateTime.MIN);
                 } else {
                     analyzeJob = new ExternalAnalyzeJob(stmt.getTableName().getCatalog(), stmt.getTableName().getDb(),
-                            stmt.getTableName().getTbl(), stmt.getColumnNames(),
+                            stmt.getTableName().getTbl(), columnNames,
                             stmt.getColumnTypes(),
                             stmt.isSample() ? StatsConstants.AnalyzeType.SAMPLE : StatsConstants.AnalyzeType.FULL,
                             StatsConstants.ScheduleType.SCHEDULE,
                             stmt.getProperties(), StatsConstants.ScheduleStatus.PENDING,
                             LocalDateTime.MIN);
                 }
+
                 context.getGlobalStateMgr().getAnalyzeMgr().addAnalyzeJob(analyzeJob);
 
                 ConnectContext statsConnectCtx = StatisticUtils.buildConnectContext();

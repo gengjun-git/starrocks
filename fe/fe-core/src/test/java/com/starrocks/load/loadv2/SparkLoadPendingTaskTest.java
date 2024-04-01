@@ -260,15 +260,15 @@ public class SparkLoadPendingTaskTest {
         PartitionKeyDesc partitionKeyDesc1 = new PartitionKeyDesc(Lists.newArrayList(new PartitionValue("10")));
         SingleRangePartitionDesc partitionDesc1 = new SingleRangePartitionDesc(false, "p1", partitionKeyDesc1, null);
         partitionDesc1.analyze(1, null);
-        partitionInfo.handleNewSinglePartitionDesc(partitionDesc1, partition1Id, false);
+        partitionInfo.handleNewSinglePartitionDesc(columns, partitionDesc1, partition1Id, false);
         PartitionKeyDesc partitionKeyDesc2 = new PartitionKeyDesc(Lists.newArrayList(new PartitionValue("20")));
         SingleRangePartitionDesc partitionDesc2 = new SingleRangePartitionDesc(false, "p2", partitionKeyDesc2, null);
         partitionDesc2.analyze(1, null);
-        partitionInfo.handleNewSinglePartitionDesc(partitionDesc2, partition2Id, false);
+        partitionInfo.handleNewSinglePartitionDesc(columns, partitionDesc2, partition2Id, false);
         PartitionKeyDesc partitionKeyDesc3 = new PartitionKeyDesc(Lists.newArrayList(new PartitionValue("10")));
         SingleRangePartitionDesc partitionDesc3 = new SingleRangePartitionDesc(false, "tp3", partitionKeyDesc1, null);
         partitionDesc3.analyze(1, null);
-        partitionInfo.handleNewSinglePartitionDesc(partitionDesc3, partition3Id, true);
+        partitionInfo.handleNewSinglePartitionDesc(columns, partitionDesc3, partition3Id, true);
 
         new Expectations() {
             {

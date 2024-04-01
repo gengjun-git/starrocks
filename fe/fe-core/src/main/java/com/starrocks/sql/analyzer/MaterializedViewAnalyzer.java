@@ -47,6 +47,7 @@ import com.starrocks.catalog.MysqlTable;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.PaimonTable;
 import com.starrocks.catalog.PartitionInfo;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PrimitiveType;
 import com.starrocks.catalog.RangePartitionInfo;
 import com.starrocks.catalog.SinglePartitionInfo;
@@ -564,12 +565,14 @@ public class MaterializedViewAnalyzer {
 
                 for (IndexDef indexDef : indexDefs) {
                     indexDef.analyze();
+                    List<ColumnId> physicalNames = new ArrayList<>(indexDef.getColumns().size());
                     for (String indexColName : indexDef.getColumns()) {
                         boolean found = false;
                         for (Column column : columns) {
                             if (column.getName().equalsIgnoreCase(indexColName)) {
                                 indexDef.checkColumn(column, statement.getKeysType());
                                 found = true;
+                                physicalNames.add(column.getColumnId());
                                 break;
                             }
                         }
@@ -578,7 +581,7 @@ public class MaterializedViewAnalyzer {
                                     indexDef.getPos());
                         }
                     }
-                    indexes.add(new Index(indexDef.getIndexName(), indexDef.getColumns(), indexDef.getIndexType(),
+                    indexes.add(new Index(indexDef.getIndexName(), physicalNames, indexDef.getIndexType(),
                             indexDef.getComment()));
                     indexMultiMap.put(indexDef.getIndexName().toLowerCase(), 1);
                     colMultiMap.put(String.join(",", indexDef.getColumns()), 1);
@@ -778,7 +781,8 @@ public class MaterializedViewAnalyzer {
                         "must be base table partition column");
             } else if (partitionInfo instanceof RangePartitionInfo) {
                 RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) partitionInfo;
-                List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
+                List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                        table, rangePartitionInfo.getPartitionColumns());
                 if (partitionColumns.size() != 1) {
                     throw new SemanticException("Materialized view related base table partition columns " +
                             "only supports single column");
@@ -1069,8 +1073,8 @@ public class MaterializedViewAnalyzer {
                 throw new SemanticException("Not support refresh by partition for single partition mv",
                         mvName.getPos());
             }
-            Column partitionColumn =
-                    ((RangePartitionInfo) table.getPartitionInfo()).getPartitionColumns().get(0);
+            Column partitionColumn = MetaUtils.getColumnsByPhysicalName(
+                    table, table.getPartitionInfo().getPartitionColumns()).get(0);
             if (partitionColumn.getType().isDateType()) {
                 validateDateTypePartition(statement.getPartitionRangeDesc());
             } else if (partitionColumn.getType().isIntegerType()) {

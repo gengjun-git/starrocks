@@ -944,7 +944,7 @@ public class TabletSchedCtx implements Comparable<TabletSchedCtx> {
                     .setStorageType(indexMeta.getStorageType())
                     .setVersion(indexMeta.getSchemaVersion())
                     .addColumns(indexMeta.getSchema())
-                    .setBloomFilterColumnNames(olapTable.getCopiedBfColumns())
+                    .setBloomFilterColumnNames(olapTable.getBfPhysicalColumnNames())
                     .setBloomFilterFpp(olapTable.getBfFpp())
                     .setIndexes(olapTable.getCopiedIndexes())
                     .setSortKeyIndexes(indexMeta.getSortKeyIdxes())

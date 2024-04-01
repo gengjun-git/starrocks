@@ -58,6 +58,7 @@ import com.starrocks.catalog.MaterializedIndexMeta;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.OlapTable.OlapTableState;
 import com.starrocks.catalog.Partition;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PhysicalPartition;
 import com.starrocks.catalog.PrimitiveType;
 import com.starrocks.catalog.Replica;
@@ -267,7 +268,7 @@ public class RollupJobV2 extends AlterJobV2 implements GsonPostProcessable {
                         .setShortKeyColumnCount(rollupShortKeyColumnCount)
                         .setSchemaHash(rollupSchemaHash)
                         .setStorageType(TStorageType.COLUMN)
-                        .setBloomFilterColumnNames(tbl.getCopiedBfColumns())
+                        .setBloomFilterColumnNames(tbl.getBfPhysicalColumnNames())
                         .setBloomFilterFpp(tbl.getBfFpp())
                         .setIndexes(tbl.getCopiedIndexes())
                         .setSortKeyIndexes(null) // Rollup tablets does not have sort key
@@ -567,9 +568,13 @@ public class RollupJobV2 extends AlterJobV2 implements GsonPostProcessable {
                                     "found in the base table.");
                         }
                     }
+
+                    List<ColumnId> usedPhysicalNames = new ArrayList<>(usedBaseTableColNames.size());
+                    for (String name : usedBaseTableColNames) {
+                        usedPhysicalNames.add(tbl.getColumn(name).getColumnId());
+                    }
                     AlterReplicaTask.RollupJobV2Params rollupJobV2Params =
-                            new AlterReplicaTask.RollupJobV2Params(defineExprs, whereExpr, descTable,
-                                    Lists.newLinkedList(usedBaseTableColNames));
+                            new AlterReplicaTask.RollupJobV2Params(defineExprs, whereExpr, descTable, usedPhysicalNames);
                     for (Replica rollupReplica : rollupReplicas) {
                         AlterReplicaTask rollupTask = AlterReplicaTask.rollupLocalTablet(
                                 rollupReplica.getBackendId(), dbId, tableId, partitionId, rollupIndexId, rollupTabletId,

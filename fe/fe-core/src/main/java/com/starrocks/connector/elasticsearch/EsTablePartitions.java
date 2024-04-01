@@ -44,6 +44,7 @@ import com.starrocks.catalog.RangePartitionInfo;
 import com.starrocks.catalog.SinglePartitionInfo;
 import com.starrocks.common.DdlException;
 import com.starrocks.connector.exception.StarRocksConnectorException;
+import com.starrocks.sql.common.MetaUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -78,12 +79,14 @@ public class EsTablePartitions {
         if (esTable.getPartitionInfo() != null) {
             if (esTable.getPartitionInfo() instanceof RangePartitionInfo) {
                 RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) esTable.getPartitionInfo();
-                partitionInfo = new RangePartitionInfo(rangePartitionInfo.getPartitionColumns());
+                List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(esTable,
+                        rangePartitionInfo.getPartitionColumns());
+                partitionInfo = new RangePartitionInfo(partitionColumns);
                 esTablePartitions.setPartitionInfo(partitionInfo);
                 if (LOG.isDebugEnabled()) {
                     StringBuilder sb = new StringBuilder();
                     int idx = 0;
-                    for (Column column : rangePartitionInfo.getPartitionColumns()) {
+                    for (Column column : partitionColumns) {
                         if (idx != 0) {
                             sb.append(", ");
                         }
@@ -112,7 +115,7 @@ public class EsTablePartitions {
             esShardPartitionsList.sort(Comparator.comparing(EsShardPartitions::getPartitionKey));
             long partitionId = 0;
             for (EsShardPartitions esShardPartitions : esShardPartitionsList) {
-                Range<PartitionKey> range = partitionInfo.handleNewSinglePartitionDesc(
+                Range<PartitionKey> range = partitionInfo.handleNewSinglePartitionDesc(esTable.getBaseSchema(),
                         esShardPartitions.getPartitionDesc(), partitionId, false);
                 esTablePartitions.addPartition(esShardPartitions.getIndexName(), partitionId);
                 esShardPartitions.setPartitionId(partitionId);

@@ -100,6 +100,7 @@ import com.starrocks.catalog.MysqlTable;
 import com.starrocks.catalog.OdbcCatalogResource;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.PartitionInfo;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PrimitiveType;
 import com.starrocks.catalog.PseudoType;
 import com.starrocks.catalog.RandomDistributionInfo;
@@ -420,6 +421,7 @@ public class GsonUtils {
             .enableComplexMapKeySerialization()
             .registerTypeHierarchyAdapter(Table.class, new GuavaTableAdapter())
             .registerTypeHierarchyAdapter(Multimap.class, new GuavaMultimapAdapter())
+            .registerTypeHierarchyAdapter(ColumnId.class, new ColumnPhysicalNameAdapter())
             .registerTypeAdapterFactory(new ProcessHookTypeAdapterFactory())
             // For call constructor with selectedFields
             .registerTypeAdapter(MapType.class, new MapType.MapTypeDeserializer())
@@ -655,6 +657,20 @@ public class GsonUtils {
         }
     }
 
+    private static class ColumnPhysicalNameAdapter implements JsonSerializer<ColumnId>,
+            JsonDeserializer<ColumnId> {
+        @Override
+        public ColumnId deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+                throws JsonParseException {
+            return new ColumnId(json.getAsJsonPrimitive().getAsString());
+        }
+
+        @Override
+        public JsonElement serialize(ColumnId src, Type typeOfSrc, JsonSerializationContext context) {
+            return new JsonPrimitive(src.getId());
+        }
+    }
+
     public static class ProcessHookTypeAdapterFactory implements TypeAdapterFactory {
 
         public ProcessHookTypeAdapterFactory() {
@@ -700,39 +716,5 @@ public class GsonUtils {
                 return PrimitiveType.INVALID_TYPE;
             }
         }
-    }
-
-    /*
-    * For historical reasons, there was a period of time when the code serialized Expr directly in GsonUtils,
-    * which would cause problems for the future expansion of Expr. This class is for code compatibility.
-    * Starting from version 3.2, this compatibility class can be deleted.
-    *
-    *
-    private static class ExpressionSerializer implements JsonSerializer<Expr> {
-        @Override
-        public JsonElement serialize(Expr expr, Type type, JsonSerializationContext context) {
-            JsonObject expressionJson = new JsonObject();
-            expressionJson.addProperty("expr", expr.toSql());
-            return expressionJson;
-        }
-    }
-
-    private static class ExpressionDeserializer implements JsonDeserializer<Expr> {
-        @Override
-        public Expr deserialize(JsonElement jsonElement, Type type, JsonDeserializationContext context)
-                throws JsonParseException {
-            JsonObject expressionObject = jsonElement.getAsJsonObject();
-            String expressionSql = expressionObject.get("expr").getAsString();
-            return SqlParser.parseSqlToExpr(expressionSql, SqlModeHelper.MODE_DEFAULT);
-        }
-    }
-     */
-    public static class ExpressionSerializedObject {
-        public ExpressionSerializedObject(String expressionSql) {
-            this.expressionSql = expressionSql;
-        }
-
-        @SerializedName("expr")
-        public String expressionSql;
     }
 }

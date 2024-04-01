@@ -514,12 +514,6 @@ public class Database extends MetaObject implements Writable {
         return Optional.ofNullable(getTable(tableId));
     }
 
-    public static Database read(DataInput in) throws IOException {
-        Database db = new Database();
-        db.readFields(in);
-        return db;
-    }
-
     @Override
     public int getSignature(int signatureVersion) {
         Adler32 adler32 = new Adler32();
@@ -568,43 +562,6 @@ public class Database extends MetaObject implements Writable {
         }
 
         out.writeLong(replicaQuotaSize);
-    }
-
-    public void readFields(DataInput in) throws IOException {
-        super.readFields(in);
-
-        id = in.readLong();
-        fullQualifiedName = ClusterNamespace.getNameFromFullName(Text.readString(in));
-        // read groups
-        int numTables = in.readInt();
-        for (int i = 0; i < numTables; ++i) {
-            Table table = Table.read(in);
-            nameToTable.put(table.getName(), table);
-            idToTable.put(table.getId(), table);
-        }
-
-        // read quota
-        dataQuotaBytes = in.readLong();
-        // Compatible for Cluster
-        Text.readString(in);
-        // Compatible for dbState
-        Text.readString(in);
-        // Compatible for attachDbName
-        Text.readString(in);
-
-        int numEntries = in.readInt();
-        for (int i = 0; i < numEntries; ++i) {
-            String name = Text.readString(in);
-            List<Function> functions = new ArrayList<>();
-            int numFunctions = in.readInt();
-            for (int j = 0; j < numFunctions; ++j) {
-                functions.add(Function.read(in));
-            }
-
-            name2Function.put(name, functions);
-        }
-
-        replicaQuotaSize = in.readLong();
     }
 
     @Override

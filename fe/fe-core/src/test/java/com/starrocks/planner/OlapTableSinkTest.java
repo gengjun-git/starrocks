@@ -37,6 +37,7 @@ import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.PartitionInfo;
 import com.starrocks.catalog.PartitionKey;
 import com.starrocks.catalog.PartitionType;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PhysicalPartitionImpl;
 import com.starrocks.catalog.RandomDistributionInfo;
 import com.starrocks.catalog.RangePartitionInfo;
@@ -194,7 +195,7 @@ public class OlapTableSinkTest {
                 partInfo.getType();
                 result = PartitionType.RANGE;
                 partInfo.getPartitionColumns();
-                result = Lists.newArrayList(partKey);
+                result = Lists.newArrayList(ColumnId.create(partKey.getName()));
                 dstTable.getPartitions();
                 result = Lists.newArrayList(p1, p2);
                 dstTable.getPartition(p1.getId());

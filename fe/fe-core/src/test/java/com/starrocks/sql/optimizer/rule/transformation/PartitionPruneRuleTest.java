@@ -27,6 +27,7 @@ import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.PartitionKey;
 import com.starrocks.catalog.PartitionType;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PrimitiveType;
 import com.starrocks.catalog.RangePartitionInfo;
 import com.starrocks.catalog.ScalarType;
@@ -50,10 +51,10 @@ import mockit.Mocked;
 import org.junit.Test;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -71,6 +72,8 @@ public class PartitionPruneRuleTest {
         List<Column> columns = Lists.newArrayList(
                 new Column("dealDate", Type.DATE, false)
         );
+
+        List<ColumnId> columnNames = Lists.newArrayList(ColumnId.create(columns.get(0).getName()));
 
         Map<Long, Range<PartitionKey>> keyRange = Maps.newHashMap();
 
@@ -127,7 +130,7 @@ public class PartitionPruneRuleTest {
                 result = keyRange;
 
                 partitionInfo.getPartitionColumns();
-                result = columns;
+                result = columnNames;
 
                 olapTable.getPartitions();
                 result = Lists.newArrayList(part1, part2, part3, part4, part5);
@@ -173,6 +176,9 @@ public class PartitionPruneRuleTest {
                 new Column("dealDate", Type.DATE, false),
                 new Column("main_brand_id", Type.INT, false)
         );
+        List<ColumnId> columnNames = columns.stream()
+                .map(column -> ColumnId.create(column.getName()))
+                .collect(Collectors.toList());
 
         Map<Long, Range<PartitionKey>> keyRange = Maps.newHashMap();
 
@@ -245,7 +251,7 @@ public class PartitionPruneRuleTest {
                 result = keyRange;
 
                 partitionInfo.getPartitionColumns();
-                result = columns;
+                result = columnNames;
 
                 olapTable.getPartitions();
                 result = Lists.newArrayList(part1, part2, part3, part4, part5);
@@ -318,8 +324,7 @@ public class PartitionPruneRuleTest {
         literalExprValues.put(10001L, p1);
         literalExprValues.put(10002L, p2);
 
-        List<Column> partitionColumns = new ArrayList<>();
-        partitionColumns.add(new Column("province", Type.STRING));
+        List<ColumnId> partitionColumns = Lists.newArrayList(ColumnId.create("province"));
 
         new Expectations() {
             {
@@ -398,8 +403,7 @@ public class PartitionPruneRuleTest {
         literalExprValues.put(10001L, p1);
         literalExprValues.put(10002L, p2);
 
-        List<Column> partitionColumns = new ArrayList<>();
-        partitionColumns.add(new Column("province", Type.STRING));
+        List<ColumnId> partitionColumns = Lists.newArrayList(ColumnId.create("province"));
 
         new Expectations() {
             {

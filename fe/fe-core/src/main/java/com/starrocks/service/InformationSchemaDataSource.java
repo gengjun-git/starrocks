@@ -49,6 +49,7 @@ import com.starrocks.server.MetadataMgr;
 import com.starrocks.sql.analyzer.Authorizer;
 import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.ast.UserIdentity;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.thrift.TAuthInfo;
 import com.starrocks.thrift.TGetPartitionsMetaRequest;
 import com.starrocks.thrift.TGetPartitionsMetaResponse;
@@ -201,7 +202,7 @@ public class InformationSchemaDataSource {
         StringBuilder partitionKeySb = new StringBuilder();
         if (partitionInfo.isRangePartition()) {
             int idx = 0;
-            for (Column column : partitionInfo.getPartitionColumns()) {
+            for (Column column : MetaUtils.getColumnsByPhysicalName(table, partitionInfo.getPartitionColumns())) {
                 if (idx != 0) {
                     partitionKeySb.append(", ");
                 }
@@ -228,7 +229,7 @@ public class InformationSchemaDataSource {
         DistributionInfo distributionInfo = olapTable.getDefaultDistributionInfo();
         tableConfigInfo.setDistribute_bucket(distributionInfo.getBucketNum());
         tableConfigInfo.setDistribute_type(distributionInfo.getType().name());
-        tableConfigInfo.setDistribute_key(distributionInfo.getDistributionKey());
+        tableConfigInfo.setDistribute_key(distributionInfo.getDistributionKey(olapTable.getBaseSchema()));
 
         // SORT KEYS
         MaterializedIndexMeta index = olapTable.getIndexMetaByIndexId(olapTable.getBaseIndexId());
@@ -323,13 +324,13 @@ public class InformationSchemaDataSource {
         partitionMetaInfo.setVisible_version_time(physicalPartition.getVisibleVersionTime() / 1000);
         // PARTITION_KEY
         partitionMetaInfo.setPartition_key(
-                Joiner.on(", ").join(PartitionsProcDir.findPartitionColNames(partitionInfo)));
+                Joiner.on(", ").join(MetaUtils.getColumnNamesByPhysicalNames(table, partitionInfo.getPartitionColumns())));
         // PARTITION_VALUE
         partitionMetaInfo.setPartition_value(
                 PartitionsProcDir.findRangeOrListValues(partitionInfo, partition.getId()));
         DistributionInfo distributionInfo = partition.getDistributionInfo();
         // DISTRIBUTION_KEY
-        partitionMetaInfo.setDistribution_key(PartitionsProcDir.distributionKeyAsString(distributionInfo));
+        partitionMetaInfo.setDistribution_key(PartitionsProcDir.distributionKeyAsString(table, distributionInfo));
         // BUCKETS
         partitionMetaInfo.setBuckets(distributionInfo.getBucketNum());
         // REPLICATION_NUM

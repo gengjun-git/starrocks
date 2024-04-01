@@ -35,6 +35,7 @@ import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.PartitionInfo;
 import com.starrocks.catalog.PartitionType;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.RangePartitionInfo;
 import com.starrocks.catalog.SinglePartitionInfo;
 import com.starrocks.catalog.Table;
@@ -63,6 +64,7 @@ import com.starrocks.sql.ast.ListPartitionDesc;
 import com.starrocks.sql.ast.PartitionDesc;
 import com.starrocks.sql.ast.RangePartitionDesc;
 import com.starrocks.sql.ast.SingleRangePartitionDesc;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.thrift.TCompressionType;
 import com.starrocks.thrift.TPersistentIndexType;
 import com.starrocks.thrift.TStorageType;
@@ -153,7 +155,7 @@ public class OlapTableFactory implements AbstractTableFactory {
                     replicateNum = stmt.getProperties().getOrDefault("replication_num",
                             String.valueOf(RunMode.defaultReplicationNum()));
                 }
-                partitionInfo.createAutomaticShadowPartition(partitionId, replicateNum);
+                partitionInfo.createAutomaticShadowPartition(baseSchema, partitionId, replicateNum);
                 partitionNameToId.put(ExpressionRangePartitionInfo.AUTOMATIC_SHADOW_PARTITION_NAME, partitionId);
             }
 
@@ -294,9 +296,11 @@ public class OlapTableFactory implements AbstractTableFactory {
                     bfFpp = 0;
                 }
 
-                table.setBloomFilterInfo(bfColumns, bfFpp);
+                table.setBloomFilterInfo(
+                        bfColumns.stream().map(ColumnId::create).collect(Collectors.toSet()),
+                        bfFpp);
 
-                BloomFilterIndexUtil.analyseBfWithNgramBf(new HashSet<>(stmt.getIndexes()), bfColumns);
+                BloomFilterIndexUtil.analyseBfWithNgramBf(table, new HashSet<>(stmt.getIndexes()), bfColumns);
             } catch (AnalysisException e) {
                 throw new DdlException(e.getMessage());
             }
@@ -457,7 +461,8 @@ public class OlapTableFactory implements AbstractTableFactory {
                     }
                     if (partitionInfo instanceof RangePartitionInfo) {
                         RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) partitionInfo;
-                        List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
+                        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                                baseSchema, rangePartitionInfo.getPartitionColumns());
                         if (partitionColumns.size() > 1) {
                             throw new DdlException("Multi-column range partition table " +
                                     "does not support storage medium cool down currently.");

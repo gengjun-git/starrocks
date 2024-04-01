@@ -254,26 +254,6 @@ public class MysqlTable extends Table {
         }
     }
 
-    public void readFields(DataInput in) throws IOException {
-        super.readFields(in);
-        // Read MySQL meta
-        int size = in.readInt();
-        Map<String, String> serializeMap = Maps.newHashMap();
-        for (int i = 0; i < size; i++) {
-            String key = Text.readString(in);
-            String value = Text.readString(in);
-            serializeMap.put(key, value);
-        }
-
-        odbcCatalogResourceName = serializeMap.get(ODBC_CATALOG_RESOURCE);
-        host = serializeMap.get(MYSQL_HOST);
-        port = serializeMap.get(MYSQL_PORT);
-        userName = serializeMap.get(MYSQL_USER);
-        passwd = serializeMap.get(MYSQL_PASSWORD);
-        mysqlDatabaseName = serializeMap.get(MYSQL_DATABASE);
-        mysqlTableName = serializeMap.get(MYSQL_TABLE);
-    }
-
     @Override
     public boolean isSupported() {
         return true;

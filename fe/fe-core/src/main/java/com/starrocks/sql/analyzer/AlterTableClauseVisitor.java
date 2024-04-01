@@ -77,6 +77,7 @@ import com.starrocks.sql.ast.ReorderColumnsClause;
 import com.starrocks.sql.ast.ReplacePartitionClause;
 import com.starrocks.sql.ast.RollupRenameClause;
 import com.starrocks.sql.ast.TableRenameClause;
+import com.starrocks.sql.common.MetaUtils;
 
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
@@ -111,10 +112,12 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
         // Only assign meaningful indexId for OlapTable
         if (table.isOlapTableOrMaterializedView()) {
             long indexId = IndexType.isCompatibleIndex(indexDef.getIndexType()) ? ((OlapTable) table).incAndGetMaxIndexId() : -1;
-            index = new Index(indexId, indexDef.getIndexName(), indexDef.getColumns(),
+            index = new Index(indexId, indexDef.getIndexName(),
+                    MetaUtils.getColumnPhysicalNamesByNames(table, indexDef.getColumns()),
                     indexDef.getIndexType(), indexDef.getComment(), indexDef.getProperties());
         } else {
-            index = new Index(indexDef.getIndexName(), indexDef.getColumns(),
+            index = new Index(indexDef.getIndexName(),
+                    MetaUtils.getColumnPhysicalNamesByNames(table, indexDef.getColumns()),
                     indexDef.getIndexType(), indexDef.getComment(), indexDef.getProperties());
         }
         clause.setIndex(index);
@@ -366,7 +369,8 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
         }
 
         List<Integer> sortKeyIdxes = Lists.newArrayList();
-        List<ColumnDef> columnDefs = olapTable.getColumns().stream().map(Column::toColumnDef).collect(Collectors.toList());
+        List<ColumnDef> columnDefs = olapTable.getColumns()
+                .stream().map(column -> column.toColumnDef(olapTable)).collect(Collectors.toList());
         if (clause.getSortKeys() != null) {
             List<String> columnNames = columnDefs.stream().map(ColumnDef::getName).collect(Collectors.toList());
 
@@ -432,10 +436,9 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
                     && olapTable.getDefaultDistributionInfo() instanceof HashDistributionInfo) {
                 HashDistributionDesc hashDistributionDesc = (HashDistributionDesc) distributionDesc;
                 HashDistributionInfo hashDistributionInfo = (HashDistributionInfo) olapTable.getDefaultDistributionInfo();
-                Set<String> orginalPartitionColumn = hashDistributionInfo.getDistributionColumns()
-                        .stream().map(Column::getName).collect(Collectors.toSet());
-                Set<String> newPartitionColumn = hashDistributionDesc.getDistributionColumnNames()
-                        .stream().collect(Collectors.toSet());
+                List<String> orginalPartitionColumn = MetaUtils.getColumnNamesByPhysicalNames(
+                        table, hashDistributionInfo.getDistributionColumns());
+                List<String> newPartitionColumn = hashDistributionDesc.getDistributionColumnNames();
                 if (!orginalPartitionColumn.equals(newPartitionColumn)) {
                     throw new SemanticException("not support change distribution column when specify partitions");
                 }
@@ -532,7 +535,7 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
                         "Column Type: " + columnDef.getType().toString() +
                         ", Expression Type: " + expr.getType().toString());
             }
-            clause.setColumn(columnDef.toColumn());
+            clause.setColumn(columnDef.toColumn(table));
             return null;
         }
 
@@ -569,7 +572,7 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
         // Make sure return null if rollup name is empty.
         clause.setRollupName(Strings.emptyToNull(clause.getRollupName()));
 
-        clause.setColumn(columnDef.toColumn());
+        clause.setColumn(columnDef.toColumn(table));
         return null;
     }
 
@@ -672,7 +675,7 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
         // Make sure return null if rollup name is empty.
         clause.setRollupName(Strings.emptyToNull(clause.getRollupName()));
 
-        columnDefs.forEach(columnDef -> clause.addColumn(columnDef.toColumn()));
+        columnDefs.forEach(columnDef -> clause.addColumn(columnDef.toColumn(table)));
         return null;
     }
 
@@ -771,7 +774,7 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
                         "Column Type: " + columnDef.getType().toString() +
                         ", Expression Type: " + expr.getType().toString());
             }
-            clause.setColumn(columnDef.toColumn());
+            clause.setColumn(columnDef.toColumn(table));
             return null;
         }
 
@@ -792,7 +795,7 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
 
         clause.setRollupName(Strings.emptyToNull(clause.getRollupName()));
 
-        clause.setColumn(columnDef.toColumn());
+        clause.setColumn(columnDef.toColumn(table));
         return null;
     }
 

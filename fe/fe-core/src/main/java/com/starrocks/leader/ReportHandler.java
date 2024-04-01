@@ -59,6 +59,7 @@ import com.starrocks.catalog.MaterializedIndex.IndexState;
 import com.starrocks.catalog.MaterializedIndexMeta;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PhysicalPartition;
 import com.starrocks.catalog.Replica;
 import com.starrocks.catalog.Replica.ReplicaState;
@@ -903,7 +904,7 @@ public class ReportHandler extends Daemon implements MemoryTrackable {
                                                     + " and it is lost. create an empty replica to recover it",
                                             tabletId, replica.getId(), backendId);
                                     MaterializedIndexMeta indexMeta = olapTable.getIndexMetaByIndexId(indexId);
-                                    Set<String> bfColumns = olapTable.getCopiedBfColumns();
+                                    Set<ColumnId> bfColumns = olapTable.getBfPhysicalColumnNames();
                                     double bfFpp = olapTable.getBfFpp();
                                     TTabletSchema tabletSchema = SchemaInfo.newBuilder()
                                             .setId(indexMeta.getSchemaId())
@@ -1615,7 +1616,6 @@ public class ReportHandler extends Daemon implements MemoryTrackable {
                     continue;
                 }
 
-                List<String> columns = Lists.newArrayList();
                 List<TColumn> columnsDesc = Lists.newArrayList();
                 List<Integer> columnSortKeyUids = Lists.newArrayList();
 
@@ -1623,7 +1623,7 @@ public class ReportHandler extends Daemon implements MemoryTrackable {
                     TColumn tColumn = column.toThrift();
                     tColumn.setColumn_name(
                             column.getNameWithoutPrefix(SchemaChangeHandler.SHADOW_NAME_PREFIX, tColumn.column_name));
-                    column.setIndexFlag(tColumn, olapTable.getIndexes(), olapTable.getBfColumns());
+                    column.setIndexFlag(tColumn, olapTable.getIndexes(), olapTable.getBfPhysicalColumnNames());
                     columnsDesc.add(tColumn);
                 }
                 if (indexMeta.getSortKeyUniqueIds() != null) {

@@ -30,6 +30,7 @@ import com.starrocks.catalog.Database;
 import com.starrocks.catalog.Index;
 import com.starrocks.catalog.KeysType;
 import com.starrocks.catalog.PartitionType;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PrimitiveType;
 import com.starrocks.catalog.Type;
 import com.starrocks.common.AnalysisException;
@@ -62,6 +63,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -431,7 +433,7 @@ public class CreateTableAnalyzer {
         List<Column> columns = statement.getColumns();
         List<Index> indexes = statement.getIndexes();
         for (ColumnDef columnDef : columnDefs) {
-            Column col = columnDef.toColumn();
+            Column col = columnDef.toColumn(null);
             if (keysDesc != null && (keysDesc.getKeysType() == KeysType.UNIQUE_KEYS
                     || keysDesc.getKeysType() == KeysType.PRIMARY_KEYS ||
                     keysDesc.getKeysType() == KeysType.DUP_KEYS)) {
@@ -481,7 +483,7 @@ public class CreateTableAnalyzer {
                 }
 
                 if (column.isGeneratedColumn()) {
-                    Expr expr = column.generatedColumnExpr();
+                    Expr expr = column.getGeneratedColumnExpr(columns);
 
                     List<DictionaryGetExpr> dictionaryGetExprs = Lists.newArrayList();
                     expr.collect(DictionaryGetExpr.class, dictionaryGetExprs);
@@ -543,12 +545,14 @@ public class CreateTableAnalyzer {
                 if (!statement.isOlapEngine()) {
                     throw new SemanticException("index only support in olap engine at current version", indexDef.getPos());
                 }
+                List<ColumnId> physicalNames = new ArrayList<>(indexDef.getColumns().size());
                 for (String indexColName : indexDef.getColumns()) {
                     boolean found = false;
                     for (Column column : columns) {
                         if (column.getName().equalsIgnoreCase(indexColName)) {
                             indexDef.checkColumn(column, keysDesc.getKeysType());
                             found = true;
+                            physicalNames.add(column.getColumnId());
                             break;
                         }
                     }
@@ -559,7 +563,7 @@ public class CreateTableAnalyzer {
                                 indexDef.getPos());
                     }
                 }
-                indexes.add(new Index(indexDef.getIndexName(), indexDef.getColumns(), indexDef.getIndexType(),
+                indexes.add(new Index(indexDef.getIndexName(), physicalNames, indexDef.getIndexType(),
                         indexDef.getComment(), indexDef.getProperties()));
 
                 distinct.add(indexDef.getIndexName());

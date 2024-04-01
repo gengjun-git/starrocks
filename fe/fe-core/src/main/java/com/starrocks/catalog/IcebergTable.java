@@ -377,23 +377,6 @@ public class IcebergTable extends Table {
     }
 
     @Override
-    public void readFields(DataInput in) throws IOException {
-        super.readFields(in);
-
-        String json = Text.readString(in);
-        JsonObject jsonObject = JsonParser.parseString(json).getAsJsonObject();
-        remoteDbName = jsonObject.getAsJsonPrimitive(JSON_KEY_ICEBERG_DB).getAsString();
-        remoteTableName = jsonObject.getAsJsonPrimitive(JSON_KEY_ICEBERG_TABLE).getAsString();
-        resourceName = jsonObject.getAsJsonPrimitive(JSON_KEY_RESOURCE_NAME).getAsString();
-        if (jsonObject.has(JSON_KEY_ICEBERG_PROPERTIES)) {
-            JsonObject jIcebergProperties = jsonObject.getAsJsonObject(JSON_KEY_ICEBERG_PROPERTIES);
-            for (Map.Entry<String, JsonElement> entry : jIcebergProperties.entrySet()) {
-                icebergProperties.put(entry.getKey(), entry.getValue().getAsString());
-            }
-        }
-    }
-
-    @Override
     public boolean isSupported() {
         return true;
     }

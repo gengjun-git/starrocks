@@ -16,12 +16,14 @@
 package com.starrocks.statistic;
 
 import com.google.gson.annotations.SerializedName;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.Type;
 import com.starrocks.common.io.Text;
 import com.starrocks.common.io.Writable;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.statistic.StatsConstants.AnalyzeType;
 import com.starrocks.statistic.StatsConstants.ScheduleStatus;
 import com.starrocks.statistic.StatsConstants.ScheduleType;
@@ -48,7 +50,7 @@ public class ExternalAnalyzeJob implements AnalyzeJob, Writable {
 
     // Empty is all column
     @SerializedName("columns")
-    private List<String> columns;
+    private List<ColumnId> columns;
 
     @SerializedName("columnTypes")
     private List<Type> columnTypes;
@@ -71,7 +73,7 @@ public class ExternalAnalyzeJob implements AnalyzeJob, Writable {
     @SerializedName("reason")
     private String reason;
 
-    public ExternalAnalyzeJob(String catalogName, String dbName, String tableName, List<String> columnNames,
+    public ExternalAnalyzeJob(String catalogName, String dbName, String tableName, List<ColumnId> columnNames,
                               List<Type> columnTypes, AnalyzeType type,
                               ScheduleType scheduleType, Map<String, String> properties, ScheduleStatus status,
                               LocalDateTime workTime) {
@@ -120,7 +122,10 @@ public class ExternalAnalyzeJob implements AnalyzeJob, Writable {
 
     @Override
     public List<String> getColumns() {
-        return columns;
+        if (columns == null) {
+            return null;
+        }
+        return MetaUtils.getColumnNamesByPhysicalNames(catalogName, dbName, tableName, columns);
     }
 
     @Override

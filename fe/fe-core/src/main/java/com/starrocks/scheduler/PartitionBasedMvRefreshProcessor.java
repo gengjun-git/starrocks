@@ -106,6 +106,7 @@ import com.starrocks.sql.ast.StatementBase;
 import com.starrocks.sql.ast.TableRelation;
 import com.starrocks.sql.common.DmlException;
 import com.starrocks.sql.common.ListPartitionDiff;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.common.PartitionDiffer;
 import com.starrocks.sql.common.QueryDebugOptions;
 import com.starrocks.sql.common.RangePartitionDiff;
@@ -1015,7 +1016,8 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
                                     refBaseTablePartitionColumn, PartitionUtil.getPartitionNames(refBaseTable)));
                 }
 
-                Column partitionColumn = (materializedView.getPartitionInfo()).getPartitionColumns().get(0);
+                Column partitionColumn = MetaUtils.getColumnsByPhysicalName(materializedView,
+                        materializedView.getPartitionInfo().getPartitionColumns()).get(0);
                 PartitionDiffer differ = PartitionDiffer.build(materializedView, partitionRange);
                 rangePartitionDiffList.add(PartitionUtil.getPartitionDiff(partitionExpr, partitionColumn,
                         refBaseTablePartitionMap.get(refBaseTable), mvRangePartitionMap, differ));
@@ -1882,10 +1884,8 @@ public class PartitionBasedMvRefreshProcessor extends BaseTaskRunProcessor {
     private DistributionDesc getDistributionDesc(MaterializedView materializedView) {
         DistributionInfo distributionInfo = materializedView.getDefaultDistributionInfo();
         if (distributionInfo instanceof HashDistributionInfo) {
-            List<String> distColumnNames = new ArrayList<>();
-            for (Column distributionColumn : ((HashDistributionInfo) distributionInfo).getDistributionColumns()) {
-                distColumnNames.add(distributionColumn.getName());
-            }
+            List<String> distColumnNames = MetaUtils.getColumnNamesByPhysicalNames(
+                    materializedView, distributionInfo.getDistributionColumns());
             return new HashDistributionDesc(distributionInfo.getBucketNum(), distColumnNames);
         } else {
             return new RandomDistributionDesc();

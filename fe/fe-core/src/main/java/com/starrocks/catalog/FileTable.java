@@ -227,21 +227,6 @@ public class FileTable extends Table {
     }
 
     @Override
-    public void readFields(DataInput in) throws IOException {
-        super.readFields(in);
-
-        String json = Text.readString(in);
-        JsonObject jsonObject = JsonParser.parseString(json).getAsJsonObject();
-
-        if (jsonObject.has(JSON_KEY_FILE_PROPERTIES)) {
-            JsonObject jHiveProperties = jsonObject.getAsJsonObject(JSON_KEY_FILE_PROPERTIES);
-            for (Map.Entry<String, JsonElement> entry : jHiveProperties.entrySet()) {
-                fileProperties.put(entry.getKey(), entry.getValue().getAsString());
-            }
-        }
-    }
-
-    @Override
     public void onReload() {
     }
 

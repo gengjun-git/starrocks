@@ -98,6 +98,7 @@ import com.starrocks.server.WarehouseManager;
 import com.starrocks.service.FrontendOptions;
 import com.starrocks.sql.analyzer.DeleteAnalyzer;
 import com.starrocks.sql.ast.DeleteStmt;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.transaction.RunningTxnExceedException;
 import com.starrocks.transaction.TransactionState;
 import com.starrocks.transaction.TransactionState.TxnCoordinator;
@@ -317,13 +318,14 @@ public class DeleteMgr implements Writable, MemoryTrackable {
         PartitionInfo partitionInfo = olapTable.getPartitionInfo();
         RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) partitionInfo;
         Map<String, PartitionColumnFilter> columnFilters = extractColumnFilter(olapTable,
-                rangePartitionInfo.getPartitionColumns(), conditions);
+                MetaUtils.getColumnsByPhysicalName(olapTable, rangePartitionInfo.getPartitionColumns()), conditions);
         Map<Long, Range<PartitionKey>> keyRangeById = rangePartitionInfo.getIdToRange(false);
         if (columnFilters.isEmpty()) {
             partitionNames.addAll(olapTable.getPartitionNames());
         } else {
             RangePartitionPruner pruner = new RangePartitionPruner(keyRangeById,
-                    rangePartitionInfo.getPartitionColumns(), columnFilters);
+                    MetaUtils.getColumnsByPhysicalName(olapTable, rangePartitionInfo.getPartitionColumns()),
+                    columnFilters);
             Collection<Long> selectedPartitionIds = pruner.prune();
 
             if (selectedPartitionIds == null) {
@@ -572,7 +574,7 @@ public class DeleteMgr implements Writable, MemoryTrackable {
             }
 
             // set schema column name
-            slotRef.setCol(column.getName());
+            slotRef.setColumnName(column.getName());
         }
         // check materialized index.
         // only need check the first partition because each partition has same materialized view

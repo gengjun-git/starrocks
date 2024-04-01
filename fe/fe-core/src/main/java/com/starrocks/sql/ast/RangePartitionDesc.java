@@ -199,7 +199,7 @@ public class RangePartitionDesc extends PartitionDesc {
         RangePartitionInfo rangePartitionInfo = new RangePartitionInfo(partitionColumns);
         for (SingleRangePartitionDesc desc : singleRangePartitionDescs) {
             long partitionId = partitionNameToId.get(desc.getPartitionName());
-            rangePartitionInfo.handleNewSinglePartitionDesc(desc, partitionId, isTemp);
+            rangePartitionInfo.handleNewSinglePartitionDesc(schema, desc, partitionId, isTemp);
         }
         return rangePartitionInfo;
     }

@@ -48,6 +48,7 @@ import com.starrocks.qe.SessionVariable;
 import com.starrocks.sql.analyzer.RelationFields;
 import com.starrocks.sql.analyzer.RelationId;
 import com.starrocks.sql.analyzer.Scope;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.optimizer.MaterializationContext;
 import com.starrocks.sql.optimizer.OptExpression;
 import com.starrocks.sql.optimizer.Utils;
@@ -700,7 +701,8 @@ public class MvPartitionCompensator {
             partitionPredicates.add(partitionPredicate);
         } else if (olapTable.getPartitionInfo() instanceof RangePartitionInfo) {
             RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) olapTable.getPartitionInfo();
-            List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
+            List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                    olapTable, rangePartitionInfo.getPartitionColumns());
             if (partitionColumns.size() != 1) {
                 // now do not support more than one partition columns
                 return null;

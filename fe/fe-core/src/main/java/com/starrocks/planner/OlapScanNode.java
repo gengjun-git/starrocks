@@ -62,6 +62,7 @@ import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.Partition;
 import com.starrocks.catalog.PartitionInfo;
 import com.starrocks.catalog.PartitionKey;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.PhysicalPartition;
 import com.starrocks.catalog.RangePartitionInfo;
 import com.starrocks.catalog.Replica;
@@ -81,6 +82,7 @@ import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.RunMode;
 import com.starrocks.service.FrontendOptions;
 import com.starrocks.sql.ast.PartitionNames;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.optimizer.operator.scalar.ColumnRefOperator;
 import com.starrocks.system.ComputeNode;
 import com.starrocks.thrift.TColumn;
@@ -359,8 +361,10 @@ public class OlapScanNode extends ScanNode {
         } else {
             keyRangeById = partitionInfo.getIdToRange(false);
         }
-        PartitionPruner partitionPruner = new RangePartitionPruner(keyRangeById,
-                partitionInfo.getPartitionColumns(), columnFilters);
+        PartitionPruner partitionPruner = new RangePartitionPruner(
+                keyRangeById,
+                MetaUtils.getColumnsByPhysicalName(olapTable, partitionInfo.getPartitionColumns()),
+                columnFilters);
         return partitionPruner.prune();
     }
 
@@ -371,7 +375,7 @@ public class OlapScanNode extends ScanNode {
         if (DistributionInfo.DistributionInfoType.HASH == distributionInfo.getType()) {
             HashDistributionInfo info = (HashDistributionInfo) distributionInfo;
             distributionPruner = new HashDistributionPruner(table.getTabletIdsInOrder(),
-                    info.getDistributionColumns(),
+                    MetaUtils.getColumnsByPhysicalName(olapTable, info.getDistributionColumns()),
                     columnFilters,
                     info.getBucketNum());
             return distributionPruner.prune();
@@ -873,7 +877,8 @@ public class OlapScanNode extends ScanNode {
                     // check partition column
                     PartitionInfo partitionInfo = olapTable.getPartitionInfo();
                     if (partitionInfo instanceof RangePartitionInfo) {
-                        List<Column> partitionColumns = ((RangePartitionInfo) partitionInfo).getPartitionColumns();
+                        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                                olapTable, partitionInfo.getPartitionColumns());
                         if (!partitionColumns.isEmpty() && partitionColumns.get(0).getName().equals(columnName)) {
                             partitionKeyAscHint = Optional.of(outputAscHint);
                         }
@@ -890,7 +895,7 @@ public class OlapScanNode extends ScanNode {
         List<String> keyColumnNames = new ArrayList<String>();
         List<TPrimitiveType> keyColumnTypes = new ArrayList<TPrimitiveType>();
         List<TColumn> columnsDesc = new ArrayList<TColumn>();
-        Set<String> bfColumns = olapTable.getBfColumns();
+        Set<ColumnId> bfColumns = olapTable.getBfPhysicalColumnNames();
 
         if (selectedIndexId != -1) {
             MaterializedIndexMeta indexMeta = olapTable.getIndexMetaByIndexId(selectedIndexId);
@@ -1111,10 +1116,9 @@ public class OlapScanNode extends ScanNode {
         if (!(partitionInfo instanceof RangePartitionInfo)) {
             return Collections.emptySet();
         }
-        RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) partitionInfo;
-        Set<String> partColNames =
-                rangePartitionInfo.getPartitionColumns().stream().map(Column::getName).collect(
-                        Collectors.toSet());
+        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                olapTable, partitionInfo.getPartitionColumns());
+        Set<String> partColNames = partitionColumns.stream().map(Column::getName).collect(Collectors.toSet());
 
         List<SlotDescriptor> slots = normalizer.getExecPlan().getDescTbl().getTupleDesc(tupleIds.get(0)).getSlots();
         List<Pair<SlotId, String>> slotIdToColNames =
@@ -1164,9 +1168,9 @@ public class OlapScanNode extends ScanNode {
         return optPartitionSlotId;
     }
 
-    private List<Expr> decomposeRangePredicates(FragmentNormalizer normalizer, TNormalPlanNode planNode,
-                                                RangePartitionInfo rangePartitionInfo, List<Expr> conjuncts) {
-        List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
+    private List<Expr> decomposeRangePredicates(List<Column> partitionColumns, FragmentNormalizer normalizer,
+                                                TNormalPlanNode planNode, RangePartitionInfo rangePartitionInfo,
+                                                List<Expr> conjuncts) {
         Set<Long> selectedPartIdSet = new HashSet<>(selectedPartitionIds);
         selectedPartIdSet.removeAll(getHotPartitionIds(rangePartitionInfo));
 
@@ -1178,7 +1182,7 @@ public class OlapScanNode extends ScanNode {
         } catch (AnalysisException ignored) {
         }
         Preconditions.checkState(optSlotId.isPresent());
-        return normalizer.getPartitionRangePredicates(conjuncts, rangeMap, rangePartitionInfo, optSlotId.get());
+        return normalizer.getPartitionRangePredicates(conjuncts, rangeMap, partitionColumns, optSlotId.get());
     }
 
     private void normalizeConjunctsNonLeft(FragmentNormalizer normalizer, TNormalPlanNode planNode) {
@@ -1198,6 +1202,8 @@ public class OlapScanNode extends ScanNode {
             return;
         }
         PartitionInfo partitionInfo = olapTable.getPartitionInfo();
+        List<Column> partitionColumns = MetaUtils.getColumnsByPhysicalName(
+                olapTable, partitionInfo.getPartitionColumns());
         // TODO (by satanson): predicates' decomposition
         //  At present, we support predicates' decomposition on RangePartition with single-column partition key.
         //  in the future, predicates' decomposition on RangePartition with multi-column partition key will be
@@ -1205,7 +1211,7 @@ public class OlapScanNode extends ScanNode {
         if (partitionInfo.isRangePartition() &&
                 ((RangePartitionInfo) partitionInfo).getPartitionColumns().size() == 1) {
             RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) partitionInfo;
-            conjuncts = decomposeRangePredicates(normalizer, planNode, rangePartitionInfo, conjuncts);
+            conjuncts = decomposeRangePredicates(partitionColumns, normalizer, planNode, rangePartitionInfo, conjuncts);
         } else {
             associateSlotIdsWithColumns(normalizer, planNode, Optional.empty());
             normalizer.createSimpleRangeMap(getSelectedPartitionIds());

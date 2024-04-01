@@ -18,6 +18,7 @@ package com.starrocks.statistic;
 import com.google.gson.annotations.SerializedName;
 import com.starrocks.catalog.Database;
 import com.starrocks.catalog.InternalCatalog;
+import com.starrocks.catalog.ColumnId;
 import com.starrocks.catalog.Table;
 import com.starrocks.catalog.Type;
 import com.starrocks.common.MetaNotFoundException;
@@ -26,6 +27,7 @@ import com.starrocks.common.io.Writable;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.statistic.StatsConstants.AnalyzeType;
 import com.starrocks.statistic.StatsConstants.ScheduleStatus;
 import com.starrocks.statistic.StatsConstants.ScheduleType;
@@ -50,7 +52,7 @@ public class NativeAnalyzeJob implements AnalyzeJob, Writable {
 
     // Empty is all column
     @SerializedName("columns")
-    private List<String> columns;
+    private List<ColumnId> columns;
 
     @SerializedName("columnTypes")
     private List<Type> columnTypes;
@@ -73,7 +75,7 @@ public class NativeAnalyzeJob implements AnalyzeJob, Writable {
     @SerializedName("reason")
     private String reason;
 
-    public NativeAnalyzeJob(long dbId, long tableId, List<String> columns, List<Type> columnTypes, AnalyzeType type,
+    public NativeAnalyzeJob(long dbId, long tableId, List<ColumnId> columns, List<Type> columnTypes, AnalyzeType type,
                             ScheduleType scheduleType, Map<String, String> properties, ScheduleStatus status,
                             LocalDateTime workTime) {
         this.id = -1;
@@ -140,7 +142,11 @@ public class NativeAnalyzeJob implements AnalyzeJob, Writable {
 
     @Override
     public List<String> getColumns() {
-        return columns;
+        if (columns == null) {
+            return null;
+        }
+
+        return MetaUtils.getColumnNamesByPhysicalNames(dbId, tableId, columns);
     }
 
     @Override

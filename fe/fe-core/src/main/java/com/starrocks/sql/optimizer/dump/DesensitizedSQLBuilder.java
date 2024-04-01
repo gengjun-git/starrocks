@@ -67,6 +67,7 @@ import com.starrocks.sql.ast.TableFunctionRelation;
 import com.starrocks.sql.ast.TableRelation;
 import com.starrocks.sql.ast.ValuesRelation;
 import com.starrocks.sql.ast.ViewRelation;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.parser.SqlParser;
 import com.starrocks.statistic.StatsConstants;
 import org.apache.commons.collections4.CollectionUtils;
@@ -535,7 +536,7 @@ public class DesensitizedSQLBuilder {
 
             // distribution
             DistributionInfo distributionInfo = materializedView.getDefaultDistributionInfo();
-            sb.append("\n").append(desensitizeDistributionInfo(distributionInfo));
+            sb.append("\n").append(desensitizeDistributionInfo(table.getBaseSchema(), distributionInfo));
 
             // refresh scheme
             sb.append("\nREFRESH ").append("MANUAL");
@@ -637,7 +638,7 @@ public class DesensitizedSQLBuilder {
             if (CollectionUtils.isNotEmpty(olapTable.getIndexes())) {
                 for (Index index : olapTable.getIndexes()) {
                     sb.append(",\n");
-                    sb.append("  ").append(desensitizeIndexDef(index));
+                    sb.append("  ").append(desensitizeIndexDef(olapTable, index));
                 }
             }
 
@@ -659,7 +660,7 @@ public class DesensitizedSQLBuilder {
 
             // distribution
             DistributionInfo distributionInfo = olapTable.getDefaultDistributionInfo();
-            sb.append(desensitizeDistributionInfo(distributionInfo));
+            sb.append(desensitizeDistributionInfo(olapTable.getBaseSchema(), distributionInfo));
 
             // order by
             MaterializedIndexMeta index = olapTable.getIndexMetaByIndexId(olapTable.getBaseIndexId());
@@ -682,11 +683,11 @@ public class DesensitizedSQLBuilder {
             sb.append(1).append("\"");
 
             // bloom filter
-            Set<String> bfColumnNames = olapTable.getCopiedBfColumns();
+            Set<String> bfColumnNames = olapTable.getBfColumnNames();
             if (bfColumnNames != null) {
                 sb.append(StatsConstants.TABLE_PROPERTY_SEPARATOR).append(PropertyAnalyzer.PROPERTIES_BF_COLUMNS)
                         .append("\" = \"");
-                List<String> desensitizedCols = olapTable.getCopiedBfColumns().stream()
+                List<String> desensitizedCols = olapTable.getBfColumnNames().stream()
                         .map(e -> desensitizeValue(e, COLUMN)).
                         collect(toList());
                 sb.append(Joiner.on(", ").join(desensitizedCols)).append("\"");
@@ -770,12 +771,12 @@ public class DesensitizedSQLBuilder {
             return sb.toString();
         }
 
-        private String desensitizeIndexDef(Index index) {
+        private String desensitizeIndexDef(Table table, Index index) {
             StringBuilder sb = new StringBuilder("INDEX ");
             sb.append(index.getIndexName());
             sb.append(" (");
             List<String> indexCols = Lists.newArrayList();
-            for (String col : index.getColumns()) {
+            for (String col : MetaUtils.getColumnNamesByPhysicalNames(table, index.getColumns())) {
                 indexCols.add(desensitizeValue(StringUtils.lowerCase(col), COLUMN));
             }
             sb.append(Joiner.on(", ").join(indexCols));
@@ -803,9 +804,9 @@ public class DesensitizedSQLBuilder {
             }
         }
 
-        private String desensitizeDistributionInfo(DistributionInfo distributionInfo) {
+        private String desensitizeDistributionInfo(List<Column> schema, DistributionInfo distributionInfo) {
             if (distributionInfo instanceof HashDistributionInfo) {
-                String distribution = distributionInfo.toSql();
+                String distribution = distributionInfo.toSql(schema);
                 int startIdx = distribution.indexOf("(");
                 int endIdx = distribution.indexOf(")");
                 String colsString = distribution.substring(startIdx + 1, endIdx);
@@ -815,7 +816,7 @@ public class DesensitizedSQLBuilder {
                         .collect(Collectors.joining(", "));
                 return "\n" + distribution.substring(0, startIdx + 1) + desensitizeCols + distribution.substring(endIdx);
             } else {
-                return "\n" + distributionInfo.toSql();
+                return "\n" + distributionInfo.toSql(schema);
             }
         }
 

@@ -34,16 +34,15 @@
 
 package com.starrocks.common.proc;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.starrocks.catalog.Database;
 import com.starrocks.catalog.EsTable;
-import com.starrocks.catalog.ListPartitionInfo;
 import com.starrocks.catalog.OlapTable;
 import com.starrocks.catalog.PartitionInfo;
 import com.starrocks.catalog.PartitionType;
-import com.starrocks.catalog.RangePartitionInfo;
 import com.starrocks.catalog.Table;
 import com.starrocks.catalog.Table.TableType;
 import com.starrocks.common.AnalysisException;
@@ -52,11 +51,11 @@ import com.starrocks.common.util.ListComparator;
 import com.starrocks.common.util.TimeUtils;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
+import com.starrocks.sql.common.MetaUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /*
  * SHOW PROC /dbs/dbId/
@@ -190,18 +189,8 @@ public class TablesProcDir implements ProcDirInterface {
         if (table.isNativeTableOrMaterializedView()) {
             OlapTable olapTable = (OlapTable) table;
             PartitionInfo partitionInfo = olapTable.getPartitionInfo();
-            if (partitionInfo.getType() == PartitionType.RANGE) {
-                return ((RangePartitionInfo) partitionInfo).getPartitionColumns()
-                        .stream()
-                        .map(column -> column.getName())
-                        .collect(Collectors.joining(", "));
-            }
-            if (partitionInfo.getType() == PartitionType.LIST) {
-                return ((ListPartitionInfo) partitionInfo).getPartitionColumns()
-                        .stream()
-                        .map(column -> column.getName())
-                        .collect(Collectors.joining(", "));
-            }
+            return Joiner.on(", ")
+                    .join(MetaUtils.getColumnNamesByPhysicalNames(table, partitionInfo.getPartitionColumns()));
         }
         return NULL_STRING_DEFAULT;
     }

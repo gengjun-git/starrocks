@@ -18,11 +18,15 @@ import com.starrocks.catalog.AggregateType;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.Index;
 import com.starrocks.catalog.KeysType;
+import com.starrocks.catalog.Table;
 import com.starrocks.catalog.Type;
 import com.starrocks.common.AnalysisException;
 import com.starrocks.common.NgramBfIndexParamsKey;
 import com.starrocks.sql.analyzer.SemanticException;
+import com.starrocks.sql.common.MetaUtils;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -95,14 +99,16 @@ public class BloomFilterIndexUtil {
         analyzeBloomFilterCaseSensitive(properties);
     }
 
-    public static void analyseBfWithNgramBf(Set<Index> newIndexs, Set<String> bfColumns) throws AnalysisException {
+    public static void analyseBfWithNgramBf(Table table, Set<Index> newIndexs, Set<String> bfColumns) throws AnalysisException {
         if (newIndexs.isEmpty() || bfColumns == null || bfColumns.isEmpty()) {
             return;
         }
 
         for (Index index : newIndexs) {
-            if (index.getIndexType() == IndexDef.IndexType.NGRAMBF && bfColumns.contains(index.getColumns().get(0))) {
-                throw new AnalysisException("column " + index.getColumns().get(0) +
+            List<String> indexColumns = MetaUtils.getColumnNamesByPhysicalNames(table, index.getColumns());
+            if (index.getIndexType() == IndexDef.IndexType.NGRAMBF
+                    && bfColumns.contains(indexColumns.get(0))) {
+                throw new AnalysisException("column " + indexColumns.get(0) +
                         " should only have one bloom filter index " +
                         "or ngram bloom filter index");
             }
