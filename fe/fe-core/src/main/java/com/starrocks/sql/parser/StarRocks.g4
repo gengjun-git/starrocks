@@ -929,7 +929,6 @@ alterClause
     | addColumnsClause
     | dropColumnClause
     | modifyColumnClause
-    | columnRenameClause
     | reorderColumnsClause
     | rollupRenameClause
     | compactionClause
@@ -1071,10 +1070,6 @@ dropColumnClause
 
 modifyColumnClause
     : MODIFY COLUMN columnDesc (FIRST | AFTER identifier)? (FROM rollupName=identifier)? properties?
-    ;
-
-columnRenameClause
-    : RENAME COLUMN oldColumn=identifier TO newColumn=identifier
     ;
 
 reorderColumnsClause
