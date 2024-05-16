@@ -452,8 +452,8 @@ public class QueryAnalyzer {
 
             Map<Expr, SlotRef> generatedExprToColumnRef = new HashMap<>();
             for (Column column : table.getBaseSchema()) {
-                if (column.generatedColumnExpr() != null) {
-                    Expr materializedExpression = column.generatedColumnExpr();
+                if (column.getGeneratedColumnExpr() != null) {
+                    Expr materializedExpression = column.getGeneratedColumnExpr();
                     ExpressionAnalyzer.analyzeExpression(materializedExpression, new AnalyzeState(), scope, session);
                     SlotRef slotRef = new SlotRef(null, column.getName());
                     ExpressionAnalyzer.analyzeExpression(slotRef, new AnalyzeState(), scope, session);

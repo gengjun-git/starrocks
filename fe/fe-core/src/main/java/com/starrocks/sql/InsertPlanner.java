@@ -645,7 +645,7 @@ public class InsertPlanner {
 
             if (targetColumn.isGeneratedColumn()) {
                 // If fe restart and Insert INTO is executed, the re-analyze is needed.
-                Expr expr = targetColumn.generatedColumnExpr();
+                Expr expr = targetColumn.getGeneratedColumnExpr(insertStatement.getTargetTable());
                 ExpressionAnalyzer.analyzeExpression(expr,
                         new AnalyzeState(), new Scope(RelationId.anonymous(), new RelationFields(
                                 insertStatement.getTargetTable().getBaseSchema().stream()

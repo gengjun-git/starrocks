@@ -18,6 +18,7 @@ package com.starrocks.catalog;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.annotations.SerializedName;
 import com.starrocks.analysis.CastExpr;
@@ -26,6 +27,7 @@ import com.starrocks.analysis.FunctionCallExpr;
 import com.starrocks.analysis.SlotRef;
 import com.starrocks.analysis.TableName;
 import com.starrocks.common.io.Text;
+import com.starrocks.persist.ExpressionSerializedObject;
 import com.starrocks.persist.gson.GsonPostProcessable;
 import com.starrocks.persist.gson.GsonPreProcessable;
 import com.starrocks.persist.gson.GsonUtils;
@@ -67,7 +69,7 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
     private List<Expr> partitionExprs;
 
     @SerializedName(value = "partitionExprs")
-    private List<GsonUtils.ExpressionSerializedObject> serializedPartitionExprs;
+    private List<ExpressionSerializedObject> serializedPartitionExprs;
 
     public ExpressionRangePartitionInfo() {
         this.type = PartitionType.EXPR_RANGE;
@@ -76,10 +78,10 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
     @Override
     public void gsonPreProcess() throws IOException {
         super.gsonPreProcess();
-        List<GsonUtils.ExpressionSerializedObject> serializedPartitionExprs = Lists.newArrayList();
+        List<ExpressionSerializedObject> serializedPartitionExprs = Lists.newArrayList();
         for (Expr partitionExpr : partitionExprs) {
             if (partitionExpr != null) {
-                serializedPartitionExprs.add(new GsonUtils.ExpressionSerializedObject(partitionExpr.toSql()));
+                serializedPartitionExprs.add(new ExpressionSerializedObject(partitionExpr.toSql()));
             }
         }
         this.serializedPartitionExprs = serializedPartitionExprs;
@@ -89,17 +91,17 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
     public void gsonPostProcess() throws IOException {
         super.gsonPostProcess();
         List<Expr> partitionExprs = Lists.newArrayList();
-        for (GsonUtils.ExpressionSerializedObject expressionSql : serializedPartitionExprs) {
+        for (ExpressionSerializedObject expressionSql : serializedPartitionExprs) {
             if (expressionSql.expressionSql != null) {
                 partitionExprs.add(SqlParser.parseSqlToExpr(expressionSql.expressionSql, SqlModeHelper.MODE_DEFAULT));
             }
         }
+        this.partitionExprs = partitionExprs;
+    }
 
-        // Analyze partition expr
-        Map<String, Column> partitionNameColumnMap = partitionColumns.stream()
-                .collect(toMap(x -> x.getName(), Function.identity(), (e1, e2) -> e1, CaseInsensitiveMap::new));
-        SlotRef slotRef;
+    public void updateSlotRef(Map<String, Column> nameToColumn) {
         for (Expr expr : partitionExprs) {
+            SlotRef slotRef;
             if (expr instanceof FunctionCallExpr) {
                 slotRef = AnalyzerUtils.getSlotRefFromFunctionCall(expr);
             } else if (expr instanceof CastExpr) {
@@ -114,8 +116,8 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
             // TODO: Later, for automatically partitioned tables,
             //  partitions of materialized views (also created automatically),
             //  and partition by expr tables will use ExpressionRangePartitionInfoV2
-            if (partitionNameColumnMap.containsKey(slotRef.getColumnName())) {
-                Column partitionColumn = partitionNameColumnMap.get(slotRef.getColumnName());
+            if (nameToColumn.containsKey(slotRef.getColumnName())) {
+                Column partitionColumn = nameToColumn.get(slotRef.getColumnName());
                 slotRef.setType(partitionColumn.getType());
                 slotRef.setNullable(partitionColumn.isAllowNull());
                 try {
@@ -125,7 +127,6 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
                 }
             }
         }
-        this.partitionExprs = partitionExprs;
     }
 
     public ExpressionRangePartitionInfo(List<Expr> partitionExprs, List<Column> columns, PartitionType type) {
@@ -219,10 +220,10 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
     public void write(DataOutput out) throws IOException {
         super.write(out);
 
-        List<GsonUtils.ExpressionSerializedObject> serializedPartitionExprs = Lists.newArrayList();
+        List<ExpressionSerializedObject> serializedPartitionExprs = Lists.newArrayList();
         for (Expr partitionExpr : partitionExprs) {
             if (partitionExpr != null) {
-                serializedPartitionExprs.add(new GsonUtils.ExpressionSerializedObject(partitionExpr.toSql()));
+                serializedPartitionExprs.add(new ExpressionSerializedObject(partitionExpr.toSql()));
             }
         }
         this.serializedPartitionExprs = serializedPartitionExprs;

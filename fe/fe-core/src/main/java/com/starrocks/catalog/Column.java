@@ -40,6 +40,7 @@ import com.google.gson.annotations.SerializedName;
 import com.starrocks.alter.SchemaChangeHandler;
 import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.NullLiteral;
+import com.starrocks.analysis.PhysicalNameExpr;
 import com.starrocks.analysis.SlotRef;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TypeDef;
@@ -53,6 +54,7 @@ import com.starrocks.persist.gson.GsonPreProcessable;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SqlModeHelper;
+import com.starrocks.sql.analyzer.AstToSQLBuilder;
 import com.starrocks.sql.ast.ColumnDef;
 import com.starrocks.sql.ast.IndexDef;
 import com.starrocks.sql.parser.SqlParser;
@@ -130,7 +132,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
 
     @SerializedName(value = "materializedColumnExpr")
     private GsonUtils.ExpressionSerializedObject generatedColumnExprSerialized;
-    private Expr generatedColumnExpr;
+    private PhysicalNameExpr generatedColumnExpr;
 
     // Only for persist
     public Column() {
@@ -230,7 +232,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
         this.uniqueId = column.getUniqueId();
     }
 
-    public ColumnDef toColumnDef() {
+    public ColumnDef toColumnDef(Table table) {
         ColumnDef.DefaultValueDef defaultDef = null;
         if (defaultValue == null) {
             if (defaultExpr != null) {
@@ -252,7 +254,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
             }
         }
         ColumnDef col = new ColumnDef(name, new TypeDef(type), null, isKey, aggregationType, isAllowNull,
-                defaultValueDef, isAutoIncrement, generatedColumnExpr, comment);
+                defaultValueDef, isAutoIncrement, generatedColumnExpr.getExpr(table), comment);
         return col;
     }
 
@@ -513,18 +515,21 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
         defineExpr = expr;
     }
 
-    public Expr generatedColumnExpr() {
+    public Expr getGeneratedColumnExpr(Table table) {
         if (generatedColumnExpr == null) {
             return null;
         }
-        return generatedColumnExpr.clone();
+        return generatedColumnExpr.getExpr(table);
     }
 
-    public Expr getGeneratedColumnExpr() {
-        return generatedColumnExpr;
+    public Expr getGeneratedColumnExpr(List<Column> schema) {
+        if (generatedColumnExpr == null) {
+            return null;
+        }
+        return generatedColumnExpr.getExpr(schema);
     }
 
-    public void setGeneratedColumnExpr(Expr expr) {
+    public void setGeneratedColumnExpr(PhysicalNameExpr expr) {
         generatedColumnExpr = expr;
     }
 
@@ -538,17 +543,17 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
         }
     }
 
-    public List<SlotRef> getGeneratedColumnRef() {
+    public List<SlotRef> getGeneratedColumnRef(Table table) {
         List<SlotRef> slots = new ArrayList<>();
         if (generatedColumnExpr == null) {
             return null;
         } else {
-            generatedColumnExpr.collect(SlotRef.class, slots);
+            generatedColumnExpr.getExpr(table).collect(SlotRef.class, slots);
             return slots;
         }
     }
 
-    public String toSql() {
+    public String toSql(Table table) {
         StringBuilder sb = new StringBuilder();
         sb.append("`").append(name).append("` ");
         String typeStr = type.toSql();
@@ -573,7 +578,13 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
         } else if (defaultValue != null && !type.isOnlyMetricType()) {
             sb.append("DEFAULT \"").append(defaultValue).append("\" ");
         } else if (isGeneratedColumn()) {
-            sb.append("AS " + generatedColumnExpr.toSql() + " ");
+            String generatedColumnSql;
+            if (table != null) {
+                generatedColumnSql = AstToSQLBuilder.toSQL(generatedColumnExpr.getExpr(table));
+            } else {
+                generatedColumnSql = generatedColumnExpr.serialize();
+            }
+            sb.append("AS ").append(generatedColumnSql).append(" ");
         }
         sb.append("COMMENT \"").append(getDisplayComment()).append("\"");
 
@@ -667,7 +678,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
         return null;
     }
 
-    public String toSqlWithoutAggregateTypeName() {
+    public String toSqlWithoutAggregateTypeName(Table table) {
         StringBuilder sb = new StringBuilder();
         sb.append("`").append(name).append("` ");
         String typeStr = type.toSql();
@@ -691,7 +702,13 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
             sb.append("DEFAULT \"").append(defaultValue).append("\" ");
         }
         if (isGeneratedColumn()) {
-            sb.append("AS " + generatedColumnExpr.toSql() + " ");
+            String generatedColumnSql;
+            if (table != null) {
+                generatedColumnSql = AstToSQLBuilder.toSQL(generatedColumnExpr.getExpr(table));
+            } else {
+                generatedColumnSql = generatedColumnExpr.serialize();
+            }
+            sb.append("AS ").append(generatedColumnSql).append(" ");
         }
         sb.append("COMMENT \"").append(comment).append("\"");
 
@@ -700,7 +717,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
 
     @Override
     public String toString() {
-        return toSql();
+        return toSql(null);
     }
 
     @Override
@@ -744,7 +761,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
             return false;
         }
         if (this.isGeneratedColumn() &&
-                !this.generatedColumnExpr().equals(other.generatedColumnExpr())) {
+                !this.generatedColumnExpr.equals(other.generatedColumnExpr)) {
             return false;
         }
 
@@ -788,8 +805,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
     @Override
     public void gsonPostProcess() throws IOException {
         if (generatedColumnExprSerialized != null && generatedColumnExprSerialized.expressionSql != null) {
-            generatedColumnExpr = SqlParser.parseSqlToExpr(generatedColumnExprSerialized.expressionSql,
-                    SqlModeHelper.MODE_DEFAULT);
+            generatedColumnExpr = generatedColumnExprSerialized.deserialize();
         }
 
         if (columnId == null || Strings.isNullOrEmpty(columnId.getId())) {
@@ -800,7 +816,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
     @Override
     public void gsonPreProcess() throws IOException {
         if (generatedColumnExpr != null) {
-            generatedColumnExprSerialized = new GsonUtils.ExpressionSerializedObject(generatedColumnExpr.toSql());
+            generatedColumnExprSerialized = ExpressionSerializedObject.create(generatedColumnExpr);
         }
     }
 
