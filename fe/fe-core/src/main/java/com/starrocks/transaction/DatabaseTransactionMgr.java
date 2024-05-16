@@ -1510,8 +1510,20 @@ public class DatabaseTransactionMgr {
                 updateCatalogAfterVisible(transactionState, db);
             }
             unprotectUpsertTransactionState(transactionState, true);
+            deleteTransaction();
         } finally {
             writeUnlock();
+        }
+    }
+
+    public void deleteTransaction() {
+        if (!finalStatusTransactionStateDeque.isEmpty()) {
+            TransactionState transactionState = finalStatusTransactionStateDeque.getFirst();
+            if (transactionState.isExpired(System.currentTimeMillis())) {
+                finalStatusTransactionStateDeque.pop();
+                clearTransactionState(transactionState);
+                LOG.info("remove expired transaction: {}", transactionState);
+            }
         }
     }
 
