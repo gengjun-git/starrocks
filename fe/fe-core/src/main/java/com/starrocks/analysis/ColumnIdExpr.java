@@ -5,37 +5,36 @@ import com.starrocks.catalog.ColumnId;
 import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.sql.analyzer.AstToStringBuilder;
 import com.starrocks.sql.analyzer.SemanticException;
-import com.starrocks.sql.ast.AstVisitor;
 import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.parser.SqlParser;
 
 import java.util.List;
 import java.util.Map;
 
-public class PhysicalNameExpr {
+public class ColumnIdExpr {
     private final Expr expr;
 
-    private PhysicalNameExpr(Expr expr) {
+    private ColumnIdExpr(Expr expr) {
         this.expr = expr;
     }
 
-    public static PhysicalNameExpr create(Map<String, Column> nameToColumn, Expr expr) {
+    public static ColumnIdExpr create(Map<String, Column> nameToColumn, Expr expr) {
         Expr clonedExpr = expr.clone();
-        setPhysicalColumnName(nameToColumn, clonedExpr);
-        return new PhysicalNameExpr(clonedExpr);
+        setColumnId(nameToColumn, clonedExpr);
+        return new ColumnIdExpr(clonedExpr);
     }
 
-    public static PhysicalNameExpr create(List<Column> schema, Expr expr) {
+    public static ColumnIdExpr create(List<Column> schema, Expr expr) {
         Expr clonedExpr = expr.clone();
-        setPhysicalColumnName(MetaUtils.convertToNameToColumn(schema), clonedExpr);
-        return new PhysicalNameExpr(clonedExpr);
+        setColumnId(MetaUtils.convertToNameToColumn(schema), clonedExpr);
+        return new ColumnIdExpr(clonedExpr);
     }
 
     // Only used on create table, you should make sure that no columns in expr have been renamed.
-    public static PhysicalNameExpr create(Expr expr) {
+    public static ColumnIdExpr create(Expr expr) {
         Expr clonedExpr = expr.clone();
-        setPhysicalColumnNameToColumnName(clonedExpr);
-        return new PhysicalNameExpr(clonedExpr);
+        setColumnIdToColumnName(clonedExpr);
+        return new ColumnIdExpr(clonedExpr);
     }
 
     public Expr convertToColumnNameExpr(Map<ColumnId, Column> idToColumn) {
@@ -58,10 +57,10 @@ public class PhysicalNameExpr {
         return new ExprSerializeVisitor().visit(expr);
     }
 
-    public static PhysicalNameExpr deserialize(String sql) {
+    public static ColumnIdExpr deserialize(String sql) {
         Expr expr = SqlParser.parseSqlToExpr(sql, SqlModeHelper.MODE_DEFAULT);
-        setPhysicalColumnNameToColumnName(expr);
-        return new PhysicalNameExpr(expr);
+        setColumnIdToColumnName(expr);
+        return new ColumnIdExpr(expr);
     }
 
     private void setColumnName(Map<ColumnId, Column> idToColumn, Expr expr) {
@@ -79,7 +78,7 @@ public class PhysicalNameExpr {
         }
     }
 
-    private static void setPhysicalColumnName(Map<String, Column> nameToColumn, Expr expr) {
+    private static void setColumnId(Map<String, Column> nameToColumn, Expr expr) {
         if (expr instanceof SlotRef) {
             SlotRef slotRef = (SlotRef) expr;
             Column column = nameToColumn.get(slotRef.getColumnName());
@@ -90,18 +89,18 @@ public class PhysicalNameExpr {
         }
 
         for (Expr child : expr.getChildren()) {
-            setPhysicalColumnName(nameToColumn, child);
+            setColumnId(nameToColumn, child);
         }
     }
 
-    private static void setPhysicalColumnNameToColumnName(Expr expr) {
+    private static void setColumnIdToColumnName(Expr expr) {
         if (expr instanceof SlotRef) {
             SlotRef slotRef = (SlotRef) expr;
             slotRef.setColumnId(ColumnId.create(slotRef.getColumnName()));
         }
 
         for (Expr child : expr.getChildren()) {
-            setPhysicalColumnNameToColumnName(child);
+            setColumnIdToColumnName(child);
         }
     }
 
@@ -111,11 +110,11 @@ public class PhysicalNameExpr {
             return true;
         }
 
-        if (obj.getClass() != PhysicalNameExpr.class) {
+        if (obj.getClass() != ColumnIdExpr.class) {
             return false;
         }
 
-        return this.expr.equals(((PhysicalNameExpr) obj).expr);
+        return this.expr.equals(((ColumnIdExpr) obj).expr);
     }
 
     private static class ExprSerializeVisitor extends AstToStringBuilder.AST2StringBuilderVisitor {

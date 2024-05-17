@@ -21,7 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.gson.annotations.SerializedName;
 import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.FunctionCallExpr;
-import com.starrocks.analysis.PhysicalNameExpr;
+import com.starrocks.analysis.ColumnIdExpr;
 import com.starrocks.analysis.SlotRef;
 import com.starrocks.analysis.TableName;
 import com.starrocks.persist.ExpressionSerializedObject;
@@ -36,6 +36,7 @@ import java.io.DataInput;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
 
@@ -53,7 +54,7 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
     public static final String AUTOMATIC_SHADOW_PARTITION_NAME = "$shadow_automatic_partition";
     public static final String SHADOW_PARTITION_PREFIX = "$";
 
-    private List<PhysicalNameExpr> partitionExprs;
+    private List<ColumnIdExpr> partitionExprs;
 
     @SerializedName(value = "partitionExprs")
     private List<ExpressionSerializedObject> serializedPartitionExprs;
@@ -66,7 +67,7 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
     public void gsonPreProcess() throws IOException {
         super.gsonPreProcess();
         List<ExpressionSerializedObject> serializedPartitionExprs = Lists.newArrayList();
-        for (PhysicalNameExpr partitionExpr : partitionExprs) {
+        for (ColumnIdExpr partitionExpr : partitionExprs) {
             if (partitionExpr != null) {
                 serializedPartitionExprs.add(ExpressionSerializedObject.create(partitionExpr));
             }
@@ -77,7 +78,7 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
     @Override
     public void gsonPostProcess() throws IOException {
         super.gsonPostProcess();
-        List<PhysicalNameExpr> partitionExprs = Lists.newArrayList();
+        List<ColumnIdExpr> partitionExprs = Lists.newArrayList();
         for (ExpressionSerializedObject expressionSql : serializedPartitionExprs) {
             if (expressionSql.getExpressionSql() != null) {
                 partitionExprs.add(expressionSql.deserialize());
@@ -86,7 +87,7 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
         this.partitionExprs = partitionExprs;
     }
 
-    public ExpressionRangePartitionInfo(List<PhysicalNameExpr> partitionExprs, List<Column> columns, PartitionType type) {
+    public ExpressionRangePartitionInfo(List<ColumnIdExpr> partitionExprs, List<Column> columns, PartitionType type) {
         super(columns);
         Preconditions.checkState(partitionExprs != null);
         Preconditions.checkState(partitionExprs.size() > 0);
@@ -96,20 +97,24 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
         this.type = type;
     }
 
-    public List<Expr> getPartitionExprs(Table table) {
+    public List<Expr> getPartitionExprs(Map<ColumnId, Column> idToColumn) {
         List<Expr> result = new ArrayList<>(partitionExprs.size());
-        for (PhysicalNameExpr physicalNameExpr : partitionExprs) {
-            result.add(physicalNameExpr.convertToColumnNameExpr(table));
+        for (ColumnIdExpr columnIdExpr : partitionExprs) {
+            result.add(columnIdExpr.convertToColumnNameExpr(idToColumn));
         }
         return result;
     }
 
     public List<Expr> getPartitionExprs(List<Column> schema) {
         List<Expr> result = new ArrayList<>(partitionExprs.size());
-        for (PhysicalNameExpr physicalNameExpr : partitionExprs) {
-            result.add(physicalNameExpr.convertToColumnNameExpr(schema));
+        for (ColumnIdExpr columnIdExpr : partitionExprs) {
+            result.add(columnIdExpr.convertToColumnNameExpr(schema));
         }
         return result;
+    }
+
+    public int getPartitionExprsSize() {
+        return partitionExprs.size();
     }
 
     @Override
@@ -118,8 +123,8 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
         sb.append("PARTITION BY ");
         if (table instanceof MaterializedView) {
             sb.append("(");
-            for (PhysicalNameExpr physicalNameExpr: partitionExprs) {
-                Expr expr = physicalNameExpr.convertToColumnNameExpr(table);
+            for (ColumnIdExpr columnIdExpr : partitionExprs) {
+                Expr expr = columnIdExpr.convertToColumnNameExpr(table.getIdToColumn());
                 if (expr instanceof SlotRef) {
                     SlotRef slotRef = (SlotRef) expr.clone();
                     sb.append("`").append(slotRef.getColumnName()).append("`").append(",");
@@ -179,7 +184,7 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
                 return null;
             }
         };
-        for (PhysicalNameExpr expr: partitionExprs) {
+        for (ColumnIdExpr expr : partitionExprs) {
             expr.getExpr().accept(renameVisitor, null);
         }
     }

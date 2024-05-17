@@ -158,7 +158,9 @@ public class InsertPlanner {
         PARTIALLY_DEPEND_ON_TARGET_COLUMNS
     }
 
-    private static GenColumnDependency getDependencyType(Column column, Set<String> targetColumns, Map<ColumnId, Column> allColumns) {
+    private static GenColumnDependency getDependencyType(Column column,
+                                                         Set<String> targetColumns,
+                                                         Map<ColumnId, Column> allColumns) {
         List<SlotRef> slots = column.getGeneratedColumnRef(allColumns);
         if (slots.isEmpty()) {
             return GenColumnDependency.NO_DEPENDENCY;

@@ -15,22 +15,22 @@
 package com.starrocks.persist;
 
 import com.google.gson.annotations.SerializedName;
-import com.starrocks.analysis.PhysicalNameExpr;
+import com.starrocks.analysis.ColumnIdExpr;
 
 public class ExpressionSerializedObject {
-    private ExpressionSerializedObject(String expressionSql) {
+    public ExpressionSerializedObject(String expressionSql) {
         this.expressionSql = expressionSql;
     }
 
     @SerializedName("expr")
     private String expressionSql;
 
-    public static ExpressionSerializedObject create(PhysicalNameExpr expr) {
+    public static ExpressionSerializedObject create(ColumnIdExpr expr) {
         return new ExpressionSerializedObject(expr.serialize());
     }
 
-    public PhysicalNameExpr deserialize() {
-        return PhysicalNameExpr.deserialize(expressionSql);
+    public ColumnIdExpr deserialize() {
+        return ColumnIdExpr.deserialize(expressionSql);
     }
 
     public String getExpressionSql() {

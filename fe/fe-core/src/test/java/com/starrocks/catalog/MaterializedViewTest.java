@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.FunctionCallExpr;
+import com.starrocks.analysis.ColumnIdExpr;
 import com.starrocks.analysis.SlotRef;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TableName;
@@ -345,13 +346,13 @@ public class MaterializedViewTest {
 
         singleRangePartitionDescs.add(new SingleRangePartitionDesc(false, "p1", p1, null));
 
-        List<Expr> exprs = Lists.newArrayList();
+        List<ColumnIdExpr> exprs = Lists.newArrayList();
         TableName tableName = new TableName(database.getFullName(), "mv_name");
         SlotRef slotRef1 = new SlotRef(tableName, "k1");
         StringLiteral quarterStringLiteral = new StringLiteral("quarter");
         FunctionCallExpr quarterFunctionCallExpr =
                 new FunctionCallExpr("date_trunc", Arrays.asList(quarterStringLiteral, slotRef1));
-        exprs.add(quarterFunctionCallExpr);
+        exprs.add(ColumnIdExpr.create(quarterFunctionCallExpr));
 
         RangePartitionInfo partitionInfo = new ExpressionRangePartitionInfo(exprs, partitionColumns, PartitionType.RANGE);
 
@@ -487,7 +488,7 @@ public class MaterializedViewTest {
         Assert.assertNotNull(mv);
         Assert.assertEquals("mv_new_name", mv.getName());
         ExpressionRangePartitionInfo partitionInfo = (ExpressionRangePartitionInfo) mv.getPartitionInfo();
-        List<Expr> exprs = partitionInfo.getPartitionExprs(mv);
+        List<Expr> exprs = partitionInfo.getPartitionExprs(mv.getIdToColumn());
         Assert.assertEquals(1, exprs.size());
         Assert.assertTrue(exprs.get(0) instanceof SlotRef);
         SlotRef slotRef = (SlotRef) exprs.get(0);
@@ -502,7 +503,7 @@ public class MaterializedViewTest {
         Assert.assertNotNull(mv2);
         Assert.assertEquals("mv_new_name2", mv2.getName());
         ExpressionRangePartitionInfo partitionInfo2 = (ExpressionRangePartitionInfo) mv2.getPartitionInfo();
-        List<Expr> exprs2 = partitionInfo2.getPartitionExprs(mv2);
+        List<Expr> exprs2 = partitionInfo2.getPartitionExprs(mv2.getIdToColumn());
         Assert.assertEquals(1, exprs2.size());
         Assert.assertTrue(exprs2.get(0) instanceof FunctionCallExpr);
         Expr rightChild = exprs2.get(0).getChild(1);

@@ -273,7 +273,7 @@ public class ColumnFilterConverter {
                 return false;
             }
             ExpressionRangePartitionInfo expressionRangePartitionInfo = (ExpressionRangePartitionInfo) partitionInfo;
-            return checkPartitionExprsContainsOperator(expressionRangePartitionInfo.getPartitionExprs(table),
+            return checkPartitionExprsContainsOperator(expressionRangePartitionInfo.getPartitionExprs(table.getIdToColumn()),
                     (CallOperator) right);
         }
 

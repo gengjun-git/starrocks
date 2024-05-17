@@ -46,7 +46,7 @@ import com.starrocks.analysis.IntLiteral;
 import com.starrocks.analysis.LargeIntLiteral;
 import com.starrocks.analysis.NullLiteral;
 import com.starrocks.analysis.ParseNode;
-import com.starrocks.analysis.PhysicalNameExpr;
+import com.starrocks.analysis.ColumnIdExpr;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TypeDef;
 import com.starrocks.catalog.AggregateType;
@@ -520,9 +520,9 @@ public class ColumnDef implements ParseNode {
         col.setIsAutoIncrement(isAutoIncrement);
         if (generatedColumnExpr != null) {
             if (table != null) {
-                col.setGeneratedColumnExpr(PhysicalNameExpr.create(table, generatedColumnExpr));
+                col.setGeneratedColumnExpr(ColumnIdExpr.create(table, generatedColumnExpr));
             } else {
-                col.setGeneratedColumnExpr(PhysicalNameExpr.create(generatedColumnExpr));
+                col.setGeneratedColumnExpr(ColumnIdExpr.create(generatedColumnExpr));
             }
         }
         return col;

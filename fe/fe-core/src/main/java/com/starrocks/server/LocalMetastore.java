@@ -70,7 +70,6 @@ import com.starrocks.catalog.Database;
 import com.starrocks.catalog.DistributionInfo;
 import com.starrocks.catalog.DynamicPartitionProperty;
 import com.starrocks.catalog.ExpressionRangePartitionInfo;
-import com.starrocks.catalog.ExpressionRangePartitionInfoV2;
 import com.starrocks.catalog.ForeignKeyConstraint;
 import com.starrocks.catalog.FunctionSet;
 import com.starrocks.catalog.HashDistributionInfo;

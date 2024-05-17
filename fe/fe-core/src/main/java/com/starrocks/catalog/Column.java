@@ -40,7 +40,7 @@ import com.google.gson.annotations.SerializedName;
 import com.starrocks.alter.SchemaChangeHandler;
 import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.NullLiteral;
-import com.starrocks.analysis.PhysicalNameExpr;
+import com.starrocks.analysis.ColumnIdExpr;
 import com.starrocks.analysis.SlotRef;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TypeDef;
@@ -132,7 +132,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
 
     @SerializedName(value = "materializedColumnExpr")
     private ExpressionSerializedObject generatedColumnExprSerialized;
-    private PhysicalNameExpr generatedColumnExpr;
+    private ColumnIdExpr generatedColumnExpr;
 
     // Only for persist
     public Column() {
@@ -529,7 +529,7 @@ public class Column implements Writable, GsonPreProcessable, GsonPostProcessable
         return generatedColumnExpr.convertToColumnNameExpr(schema);
     }
 
-    public void setGeneratedColumnExpr(PhysicalNameExpr expr) {
+    public void setGeneratedColumnExpr(ColumnIdExpr expr) {
         generatedColumnExpr = expr;
     }
 

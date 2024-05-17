@@ -384,7 +384,7 @@ public class CreateMaterializedViewTest {
             Assert.assertEquals(1, partitionInfo.getPartitionColumns().size());
             Assert.assertTrue(partitionInfo instanceof ExpressionRangePartitionInfo);
             ExpressionRangePartitionInfo expressionRangePartitionInfo = (ExpressionRangePartitionInfo) partitionInfo;
-            Expr partitionExpr = expressionRangePartitionInfo.getPartitionExprs(materializedView).get(0);
+            Expr partitionExpr = expressionRangePartitionInfo.getPartitionExprs(materializedView.getIdToColumn()).get(0);
             Assert.assertTrue(partitionExpr instanceof FunctionCallExpr);
             FunctionCallExpr partitionFunctionCallExpr = (FunctionCallExpr) partitionExpr;
             Assert.assertEquals("date_trunc", partitionFunctionCallExpr.getFnName().getFunction());
@@ -619,7 +619,7 @@ public class CreateMaterializedViewTest {
             Assert.assertEquals(1, partitionInfo.getPartitionColumns().size());
             Assert.assertTrue(partitionInfo instanceof ExpressionRangePartitionInfo);
             ExpressionRangePartitionInfo expressionRangePartitionInfo = (ExpressionRangePartitionInfo) partitionInfo;
-            Expr partitionExpr = expressionRangePartitionInfo.getPartitionExprs(materializedView).get(0);
+            Expr partitionExpr = expressionRangePartitionInfo.getPartitionExprs(materializedView.getIdToColumn()).get(0);
             Assert.assertTrue(partitionExpr instanceof SlotRef);
             SlotRef partitionSlotRef = (SlotRef) partitionExpr;
             Assert.assertEquals("s1", partitionSlotRef.getColumnName());
@@ -2666,7 +2666,7 @@ public class CreateMaterializedViewTest {
         PartitionInfo partitionInfo = mv.getPartitionInfo();
         Assert.assertTrue(partitionInfo instanceof ExpressionRangePartitionInfo);
         ExpressionRangePartitionInfo expressionRangePartitionInfo = (ExpressionRangePartitionInfo) partitionInfo;
-        List<Expr> partitionExpr = expressionRangePartitionInfo.getPartitionExprs(table);
+        List<Expr> partitionExpr = expressionRangePartitionInfo.getPartitionExprs(table.getIdToColumn());
         Assert.assertEquals(1, partitionExpr.size());
         Assert.assertTrue(partitionExpr.get(0) instanceof SlotRef);
         SlotRef slotRef = (SlotRef) partitionExpr.get(0);

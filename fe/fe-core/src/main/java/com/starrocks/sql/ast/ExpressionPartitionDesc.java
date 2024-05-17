@@ -20,7 +20,7 @@ import com.google.common.collect.Lists;
 import com.starrocks.analysis.CastExpr;
 import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.FunctionCallExpr;
-import com.starrocks.analysis.PhysicalNameExpr;
+import com.starrocks.analysis.ColumnIdExpr;
 import com.starrocks.analysis.SlotRef;
 import com.starrocks.catalog.AggregateType;
 import com.starrocks.catalog.Column;
@@ -139,7 +139,7 @@ public class ExpressionPartitionDesc extends PartitionDesc {
             throws DdlException {
         // for materialized view express partition.
         if (rangePartitionDesc == null) {
-            return new ExpressionRangePartitionInfo(Collections.singletonList(PhysicalNameExpr.create(schema, expr)),
+            return new ExpressionRangePartitionInfo(Collections.singletonList(ColumnIdExpr.create(schema, expr)),
                     schema, PartitionType.RANGE);
         }
         List<Column> partitionColumns = Lists.newArrayList();
@@ -167,13 +167,13 @@ public class ExpressionPartitionDesc extends PartitionDesc {
         if (rangePartitionDesc.isAutoPartitionTable) {
             // for automatic partition table
             partitionInfo = new ExpressionRangePartitionInfo(
-                    Collections.singletonList(PhysicalNameExpr.create(schema, expr)),
+                    Collections.singletonList(ColumnIdExpr.create(schema, expr)),
                     partitionColumns,
                     PartitionType.EXPR_RANGE);
         } else {
             // for partition by range expr
             ExpressionRangePartitionInfoV2 expressionRangePartitionInfoV2 =
-                    new ExpressionRangePartitionInfoV2(Collections.singletonList(PhysicalNameExpr.create(schema, expr)),
+                    new ExpressionRangePartitionInfoV2(Collections.singletonList(ColumnIdExpr.create(schema, expr)),
                             partitionColumns);
             expressionRangePartitionInfoV2.setSourcePartitionTypes(Collections.singletonList(sourcePartitionColumn.getType()));
             partitionInfo = expressionRangePartitionInfoV2;

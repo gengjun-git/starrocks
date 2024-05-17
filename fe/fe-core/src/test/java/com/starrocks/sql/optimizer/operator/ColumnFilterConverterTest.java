@@ -21,7 +21,7 @@ import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.FunctionCallExpr;
 import com.starrocks.analysis.IntLiteral;
 import com.starrocks.analysis.NullLiteral;
-import com.starrocks.analysis.PhysicalNameExpr;
+import com.starrocks.analysis.ColumnIdExpr;
 import com.starrocks.analysis.SlotRef;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TableName;
@@ -235,7 +235,7 @@ public class ColumnFilterConverterTest {
     }
 
     private OlapTable buildOlapTable(String timeKey) {
-        List<PhysicalNameExpr> exprList = new ArrayList<>();
+        List<ColumnIdExpr> exprList = new ArrayList<>();
         List<Expr> params = new ArrayList<>();
         List<Column> columns = new ArrayList<>();
         StringLiteral stringLiteral = new StringLiteral(timeKey);
@@ -246,7 +246,7 @@ public class ColumnFilterConverterTest {
         params.add(slotRefDate);
         FunctionCallExpr zdtestCallExpr = new FunctionCallExpr(FunctionSet.DATE_TRUNC,
                 params);
-        exprList.add(PhysicalNameExpr.create(zdtestCallExpr));
+        exprList.add(ColumnIdExpr.create(zdtestCallExpr));
         columns.add(new Column("date_col", ScalarType.DATE));
         ExpressionRangePartitionInfo expressionRangePartitionInfo = new ExpressionRangePartitionInfo(exprList, columns,
                 PartitionType.RANGE);
