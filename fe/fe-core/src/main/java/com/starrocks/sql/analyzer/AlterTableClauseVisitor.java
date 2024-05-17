@@ -686,7 +686,7 @@ public class AlterTableClauseVisitor implements AstVisitor<Void, ConnectContext>
 
         for (Column column : table.getFullSchema()) {
             if (column.isGeneratedColumn()) {
-                List<SlotRef> slots = column.getGeneratedColumnRef();
+                List<SlotRef> slots = column.getGeneratedColumnRef(table.getIdToColumn());
                 for (SlotRef slot : slots) {
                     if (slot.getColumnName().equals(clause.getColName())) {
                         throw new SemanticException("Column: " + clause.getColName() + " can not be dropped" +

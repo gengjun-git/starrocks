@@ -2,13 +2,15 @@ package com.starrocks.analysis;
 
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.ColumnId;
-import com.starrocks.catalog.Table;
 import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.sql.analyzer.AstToStringBuilder;
 import com.starrocks.sql.analyzer.SemanticException;
+import com.starrocks.sql.ast.AstVisitor;
+import com.starrocks.sql.common.MetaUtils;
 import com.starrocks.sql.parser.SqlParser;
 
 import java.util.List;
+import java.util.Map;
 
 public class PhysicalNameExpr {
     private final Expr expr;
@@ -17,91 +19,78 @@ public class PhysicalNameExpr {
         this.expr = expr;
     }
 
-    public static PhysicalNameExpr create(Table table, Expr expr) {
+    public static PhysicalNameExpr create(Map<String, Column> nameToColumn, Expr expr) {
         Expr clonedExpr = expr.clone();
-        setPhysicalColumnName(table, clonedExpr);
-        return new PhysicalNameExpr(expr);
+        setPhysicalColumnName(nameToColumn, clonedExpr);
+        return new PhysicalNameExpr(clonedExpr);
+    }
+
+    public static PhysicalNameExpr create(List<Column> schema, Expr expr) {
+        Expr clonedExpr = expr.clone();
+        setPhysicalColumnName(MetaUtils.convertToNameToColumn(schema), clonedExpr);
+        return new PhysicalNameExpr(clonedExpr);
     }
 
     // Only used on create table, you should make sure that no columns in expr have been renamed.
     public static PhysicalNameExpr create(Expr expr) {
         Expr clonedExpr = expr.clone();
-        setPhysicalColumnNameToColumnName(expr);
-        return new PhysicalNameExpr(expr);
+        setPhysicalColumnNameToColumnName(clonedExpr);
+        return new PhysicalNameExpr(clonedExpr);
     }
 
-    public Expr getExpr(Table table) {
+    public Expr convertToColumnNameExpr(Map<ColumnId, Column> idToColumn) {
         Expr clonedExpr = expr.clone();
-        setColumnName(table, clonedExpr);
+        setColumnName(idToColumn, clonedExpr);
         return clonedExpr;
     }
 
-    public Expr getExpr(List<Column> schema) {
+    public Expr convertToColumnNameExpr(List<Column> schema) {
         Expr clonedExpr = expr.clone();
-        setColumnName(schema, clonedExpr);
+        setColumnName(MetaUtils.convertToIdToColumn(schema), clonedExpr);
         return clonedExpr;
+    }
+
+    public Expr getExpr() {
+        return expr;
     }
 
     public String serialize() {
         return new ExprSerializeVisitor().visit(expr);
     }
 
-    // only used for deserialization
     public static PhysicalNameExpr deserialize(String sql) {
         Expr expr = SqlParser.parseSqlToExpr(sql, SqlModeHelper.MODE_DEFAULT);
-        return new PhysicalNameExpr(setPhysicalColumnNameToColumnName(expr);
+        setPhysicalColumnNameToColumnName(expr);
+        return new PhysicalNameExpr(expr);
     }
 
-    private void setColumnName(Table table, Expr expr) {
+    private void setColumnName(Map<ColumnId, Column> idToColumn, Expr expr) {
         if (expr instanceof SlotRef) {
             SlotRef slotRef = (SlotRef) expr;
-            Column column = table.getColumn(slotRef.getColumnId());
+            Column column = idToColumn.get(slotRef.getColumnId());
             if (column == null) {
-                throw new SemanticException(String.format("can not get column by physical name: %s, from table: %s",
-                        slotRef.getColumnId(), table.getName()));
+                throw new SemanticException(String.format("can not get column by column id: %s", slotRef.getColumnId()));
             }
             slotRef.setColumnName(column.getName());
         }
 
         for (Expr child : expr.getChildren()) {
-            setColumnName(table, child);
+            setColumnName(idToColumn, child);
         }
     }
 
-    private void setColumnName(List<Column> schema, Expr expr) {
+    private static void setPhysicalColumnName(Map<String, Column> nameToColumn, Expr expr) {
         if (expr instanceof SlotRef) {
             SlotRef slotRef = (SlotRef) expr;
-            boolean found = false;
-            for (Column column : schema) {
-                if (column.getColumnId().equalsIgnoreCase(slotRef.getColumnId())) {
-                    slotRef.setColumnName(column.getName());
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                throw new SemanticException("can not get column by physical name: " + slotRef.getColumnId());
-            }
-        }
-
-        for (Expr child : expr.getChildren()) {
-            setColumnName(schema, child);
-        }
-    }
-
-    private static void setPhysicalColumnName(Table table, Expr expr) {
-        if (expr instanceof SlotRef) {
-            SlotRef slotRef = (SlotRef) expr;
-            Column column = table.getColumn(slotRef.getColumnName());
+            Column column = nameToColumn.get(slotRef.getColumnName());
             if (column == null) {
-                throw new SemanticException(String.format("can not get column: %s, from table: %s",
-                        slotRef.getColumnName(), table.getName()));
+                throw new SemanticException(String.format("can not get column by name : %s", slotRef.getColumnName()));
             }
             slotRef.setColumnId(column.getColumnId());
         }
 
         for (Expr child : expr.getChildren()) {
-            setPhysicalColumnName(table, child);
+            setPhysicalColumnName(nameToColumn, child);
         }
     }
 
@@ -133,9 +122,9 @@ public class PhysicalNameExpr {
         @Override
         public String visitSlot(SlotRef node, Void context) {
             if (node.getTblNameWithoutAnalyzed() != null) {
-                return node.getTblNameWithoutAnalyzed().toString() + "." + node.getColumnId();
+                return node.getTblNameWithoutAnalyzed().toString() + "." + node.getColumnId().getId();
             } else {
-                return node.getColumnId().toString();
+                return node.getColumnId().getId();
             }
         }
     }

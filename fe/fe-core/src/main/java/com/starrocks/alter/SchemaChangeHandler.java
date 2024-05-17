@@ -458,7 +458,7 @@ public class SchemaChangeHandler extends AlterHandler {
                 if (!column.isGeneratedColumn()) {
                     continue;
                 }
-                List<SlotRef> slots = column.getGeneratedColumnRef(olapTable);
+                List<SlotRef> slots = column.getGeneratedColumnRef(olapTable.getIdToColumn());
                 for (SlotRef slot : slots) {
                     if (slot.getColumnName().equals(modColumn.getName())) {
                         throw new DdlException("Do not support modify column: " + modColumn.getName() +

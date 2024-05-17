@@ -21,6 +21,7 @@ import com.google.gson.annotations.SerializedName;
 import com.starrocks.analysis.CastExpr;
 import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.FunctionCallExpr;
+import com.starrocks.analysis.PhysicalNameExpr;
 import com.starrocks.analysis.SlotRef;
 import com.starrocks.common.io.Text;
 import com.starrocks.common.util.RangeUtils;
@@ -54,7 +55,7 @@ public class ExpressionRangePartitionInfoV2 extends RangePartitionInfo
 
     private static final Logger LOG = LogManager.getLogger(ExpressionRangePartitionInfoV2.class);
 
-    private List<Expr> partitionExprs;
+    private List<PhysicalNameExpr> partitionExprs;
 
     @SerializedName("serializedPartitionExprs")
     private List<String> serializedPartitionExprs;
@@ -65,7 +66,7 @@ public class ExpressionRangePartitionInfoV2 extends RangePartitionInfo
     @SerializedName(value = "sourcePartitionTypes")
     private List<Type> sourcePartitionTypes;
 
-    public ExpressionRangePartitionInfoV2(List<Expr> partitionExprs, List<Column> columns) {
+    public ExpressionRangePartitionInfoV2(List<PhysicalNameExpr> partitionExprs, List<Column> columns) {
         super(columns);
         this.type = PartitionType.EXPR_RANGE_V2;
         this.partitionExprs = partitionExprs;
@@ -82,8 +83,8 @@ public class ExpressionRangePartitionInfoV2 extends RangePartitionInfo
     public void gsonPreProcess() throws IOException {
         super.gsonPreProcess();
         this.serializedPartitionExprs = new ArrayList<>();
-        for (Expr partitionExpr : partitionExprs) {
-            serializedPartitionExprs.add(partitionExpr.toSql());
+        for (PhysicalNameExpr partitionExpr : partitionExprs) {
+            serializedPartitionExprs.add(partitionExpr.serialize());
         }
     }
 
@@ -92,12 +93,12 @@ public class ExpressionRangePartitionInfoV2 extends RangePartitionInfo
         super.gsonPostProcess();
         partitionExprs = Lists.newArrayList();
         for (String expressionSql : serializedPartitionExprs) {
-            Expr expr = SqlParser.parseSqlToExpr(expressionSql, SqlModeHelper.MODE_DEFAULT);
-            partitionExprs.add(expr);
+            partitionExprs.add(PhysicalNameExpr.deserialize(expressionSql));
         }
         // Analyze partition expr
         SlotRef slotRef;
-        for (Expr expr : partitionExprs) {
+        for (PhysicalNameExpr physicalNameExpr: partitionExprs) {
+            Expr expr = physicalNameExpr.getExpr();
             if (expr instanceof FunctionCallExpr) {
                 slotRef = AnalyzerUtils.getSlotRefFromFunctionCall(expr);
             } else if (expr instanceof CastExpr) {
@@ -131,7 +132,8 @@ public class ExpressionRangePartitionInfoV2 extends RangePartitionInfo
         sb.append("PARTITION BY ");
         if (table instanceof MaterializedView) {
             sb.append("(");
-            for (Expr expr : partitionExprs) {
+            for (PhysicalNameExpr physicalNameExpr : partitionExprs) {
+                Expr expr = physicalNameExpr.convertToColumnNameExpr(table.getIdToColumn());
                 if (expr instanceof SlotRef) {
                     SlotRef slotRef = (SlotRef) expr.clone();
                     sb.append("`").append(slotRef.getColumnName()).append("`").append(",");
@@ -156,7 +158,8 @@ public class ExpressionRangePartitionInfoV2 extends RangePartitionInfo
             sb.append("RANGE(");
         }
         List<String> partitionExprDesc = Lists.newArrayList();
-        for (Expr partitionExpr : partitionExprs) {
+        for (PhysicalNameExpr physicalNameExpr : partitionExprs) {
+            Expr partitionExpr = physicalNameExpr.convertToColumnNameExpr(table.getIdToColumn());
             if (partitionExpr instanceof CastExpr && isTimestampFunction(partitionExpr)) {
                 partitionExprDesc.add(partitionExpr.getChild(0).toSql());
             } else {
@@ -237,11 +240,19 @@ public class ExpressionRangePartitionInfoV2 extends RangePartitionInfo
         return false;
     }
 
-    public List<Expr> getPartitionExprs() {
-        return partitionExprs;
+    public List<Expr> getPartitionExprs(Map<ColumnId, Column> idToColumn) {
+        List<Expr> result = new ArrayList<>(partitionExprs.size());
+        for (PhysicalNameExpr physicalNameExpr : partitionExprs) {
+            result.add(physicalNameExpr.convertToColumnNameExpr(idToColumn));
+        }
+        return result;
     }
 
-    public void setPartitionExprs(List<Expr> partitionExprs) {
+    public int getPartitionExprsSize() {
+        return partitionExprs.size();
+    }
+
+    public void setPartitionExprs(List<PhysicalNameExpr> partitionExprs) {
         this.partitionExprs = partitionExprs;
     }
 

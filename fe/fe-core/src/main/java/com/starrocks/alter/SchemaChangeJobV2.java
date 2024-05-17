@@ -544,7 +544,7 @@ public class SchemaChangeJobV2 extends AlterJobV2 {
                         }
 
                         for (Column generatedColumn : diffGeneratedColumnSchema) {
-                            Expr expr = generatedColumn.getGeneratedColumnExpr(tbl);
+                            Expr expr = generatedColumn.getGeneratedColumnExpr(tbl.getIdToColumn());
                             List<Expr> outputExprs = Lists.newArrayList();
 
                             for (Column col : tbl.getBaseSchema()) {

@@ -440,6 +440,14 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable, 
         throw new NotImplementedException(msg);
     }
 
+    public Map<String, Column> getNameToColumn() {
+        return nameToColumn;
+    }
+
+    public Map<ColumnId, Column> getIdToColumn() {
+        return idToColumn;
+    }
+
     public TTableDescriptor toThrift(List<ReferencedPartitionInfo> partitions) {
         return null;
     }

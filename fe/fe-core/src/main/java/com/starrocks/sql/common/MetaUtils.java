@@ -351,7 +351,7 @@ public class MetaUtils {
                                                              String dbName,
                                                              String tableName,
                                                              List<ColumnId> physicalNames) {
-        Table table = getTable(catalogName,dbName, tableName);
+        Table table = getTable(catalogName, dbName, tableName);
         return getColumnNamesByPhysicalNames(table, physicalNames);
     }
 
@@ -381,5 +381,21 @@ public class MetaUtils {
             columnIds.add(column.getColumnId());
         }
         return columnIds;
+    }
+
+    public static Map<ColumnId, Column> convertToIdToColumn(List<Column> schema) {
+        Map<ColumnId, Column> result = Maps.newTreeMap(ColumnId.CASE_INSENSITIVE_ORDER);
+        for (Column column : schema) {
+            result.put(column.getColumnId(), column);
+        }
+        return result;
+    }
+
+    public static Map<String, Column> convertToNameToColumn(List<Column> schema) {
+        Map<String, Column> result = Maps.newTreeMap(String.CASE_INSENSITIVE_ORDER);
+        for (Column column : schema) {
+            result.put(column.getName(), column);
+        }
+        return result;
     }
 }

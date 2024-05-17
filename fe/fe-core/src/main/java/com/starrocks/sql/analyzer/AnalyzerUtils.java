@@ -1229,11 +1229,12 @@ public class AnalyzerUtils {
     }
 
     public static PartitionMeasure checkAndGetPartitionMeasure(
+            Table table,
             ExpressionRangePartitionInfo expressionRangePartitionInfo)
             throws AnalysisException {
         long interval = 1;
         String granularity;
-        List<Expr> partitionExprs = expressionRangePartitionInfo.getPartitionExprs();
+        List<Expr> partitionExprs = expressionRangePartitionInfo.getPartitionExprs(table);
 
         if (partitionExprs.size() != 1) {
             throw new AnalysisException("automatic partition only support one expression partitionExpr.");
@@ -1283,7 +1284,7 @@ public class AnalyzerUtils {
             throws AnalysisException {
         PartitionInfo partitionInfo = olapTable.getPartitionInfo();
         if (partitionInfo instanceof ExpressionRangePartitionInfo) {
-            PartitionMeasure measure = checkAndGetPartitionMeasure((ExpressionRangePartitionInfo) partitionInfo);
+            PartitionMeasure measure = checkAndGetPartitionMeasure(table, (ExpressionRangePartitionInfo) partitionInfo);
             return getAddPartitionClauseForRangePartition(olapTable, partitionValues, measure,
                     (ExpressionRangePartitionInfo) partitionInfo);
         } else if (partitionInfo instanceof ListPartitionInfo) {

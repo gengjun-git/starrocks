@@ -1713,7 +1713,7 @@ public class LocalMetastore implements ConnectorMetadata {
         if (partitionInfo.getType() == PartitionType.EXPR_RANGE) {
             isAutoPartitionTable = true;
             ExpressionRangePartitionInfo exprRangePartitionInfo = (ExpressionRangePartitionInfo) partitionInfo;
-            Expr expr = exprRangePartitionInfo.getPartitionExprs().get(0);
+            Expr expr = exprRangePartitionInfo.getPartitionExprs(partitionColumns).get(0);
             if (expr instanceof FunctionCallExpr) {
                 FunctionCallExpr functionCallExpr = (FunctionCallExpr) expr;
                 checkAutoPartitionTableLimit(functionCallExpr, multiRangePartitionDesc);
@@ -4221,37 +4221,6 @@ public class LocalMetastore implements ConnectorMetadata {
             for (Column distributionColumn : distributionColumns) {
                 if (distributionColumn.getName().equalsIgnoreCase(colName)) {
                     distributionColumn.setName(newColName);
-                }
-            }
-        }
-
-        PartitionInfo partitionInfo = olapTable.getPartitionInfo();
-        if (partitionInfo.isRangePartition()) {
-            RangePartitionInfo rangePartitionInfo = (RangePartitionInfo) partitionInfo;
-            List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
-            for (Column partitionColumn : partitionColumns) {
-                if (partitionColumn.getName().equalsIgnoreCase(colName)) {
-                    partitionColumn.setName(newColName);
-                }
-            }
-            // for expression range partition will also modify the inner slotRef
-            if (partitionInfo instanceof ExpressionRangePartitionInfo) {
-                ExpressionRangePartitionInfo expressionRangePartitionInfo =
-                        (ExpressionRangePartitionInfo) rangePartitionInfo;
-                Expr expr = expressionRangePartitionInfo.getPartitionExprs().get(0);
-                AnalyzerUtils.renameSlotRef(expr, newColName);
-            } else if (partitionInfo instanceof ExpressionRangePartitionInfoV2) {
-                ExpressionRangePartitionInfoV2 expressionRangePartitionInfo =
-                        (ExpressionRangePartitionInfoV2) rangePartitionInfo;
-                Expr expr = expressionRangePartitionInfo.getPartitionExprs().get(0);
-                AnalyzerUtils.renameSlotRef(expr, newColName);
-            }
-        } else if (partitionInfo instanceof ListPartitionInfo) {
-            ListPartitionInfo rangePartitionInfo = (ListPartitionInfo) partitionInfo;
-            List<Column> partitionColumns = rangePartitionInfo.getPartitionColumns();
-            for (Column partitionColumn : partitionColumns) {
-                if (partitionColumn.getName().equalsIgnoreCase(colName)) {
-                    partitionColumn.setName(newColName);
                 }
             }
         }
