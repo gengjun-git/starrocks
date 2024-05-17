@@ -37,6 +37,7 @@ package com.starrocks.sql.ast;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import com.starrocks.analysis.BoolLiteral;
+import com.starrocks.analysis.ColumnIdExpr;
 import com.starrocks.analysis.DateLiteral;
 import com.starrocks.analysis.DecimalLiteral;
 import com.starrocks.analysis.Expr;
@@ -46,7 +47,6 @@ import com.starrocks.analysis.IntLiteral;
 import com.starrocks.analysis.LargeIntLiteral;
 import com.starrocks.analysis.NullLiteral;
 import com.starrocks.analysis.ParseNode;
-import com.starrocks.analysis.ColumnIdExpr;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TypeDef;
 import com.starrocks.catalog.AggregateType;
@@ -520,7 +520,7 @@ public class ColumnDef implements ParseNode {
         col.setIsAutoIncrement(isAutoIncrement);
         if (generatedColumnExpr != null) {
             if (table != null) {
-                col.setGeneratedColumnExpr(ColumnIdExpr.create(table, generatedColumnExpr));
+                col.setGeneratedColumnExpr(ColumnIdExpr.create(table.getNameToColumn(), generatedColumnExpr));
             } else {
                 col.setGeneratedColumnExpr(ColumnIdExpr.create(generatedColumnExpr));
             }
