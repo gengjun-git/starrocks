@@ -451,7 +451,11 @@ public class Text implements Writable {
         int length = ByteBuffer.wrap(bytes).getInt();
         bytes = new byte[length];
         readAndCheckEof(in, bytes, length);
-        return decode(bytes);
+        if (length > (Integer.MAX_VALUE >> 1)) {
+            return new String(bytes, StandardCharsets.US_ASCII);
+        } else {
+            return decode(bytes);
+        }
     }
 
     /**
