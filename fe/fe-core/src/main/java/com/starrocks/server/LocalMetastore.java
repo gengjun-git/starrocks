@@ -148,6 +148,7 @@ import com.starrocks.persist.DropDbInfo;
 import com.starrocks.persist.DropPartitionInfo;
 import com.starrocks.persist.DropPartitionsInfo;
 import com.starrocks.persist.EditLog;
+import com.starrocks.persist.ImageWriter;
 import com.starrocks.persist.ListPartitionPersistInfo;
 import com.starrocks.persist.ModifyPartitionInfo;
 import com.starrocks.persist.ModifyTableColumnOperationLog;
@@ -253,7 +254,6 @@ import org.apache.hadoop.util.ThreadUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -5082,7 +5082,7 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler {
         }
     }
 
-    public void save(DataOutputStream dos) throws IOException, SRMetaBlockException {
+    public void save(ImageWriter imageWriter) throws IOException, SRMetaBlockException {
         // Don't write system db meta
         Map<Long, Database> idToDbNormal =
                 idToDb.entrySet().stream().filter(entry -> entry.getKey() > NEXT_ID_INIT_VALUE)
@@ -5092,13 +5092,13 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler {
             totalTableNum += database.getTableNumber();
         }
         int cnt = 1 + idToDbNormal.size() + idToDbNormal.size() /* record database table size */ + totalTableNum + 1;
-        SRMetaBlockWriter writer = new SRMetaBlockWriter(dos, SRMetaBlockID.LOCAL_META_STORE, cnt);
+        SRMetaBlockWriter writer = imageWriter.getBlockWriter(SRMetaBlockID.LOCAL_META_STORE, cnt);
 
-        writer.writeJson(idToDbNormal.size());
+        writer.writeInt(idToDbNormal.size());
         for (Database database : idToDbNormal.values()) {
             writer.writeJson(database);
             int totalTableNumber = database.getTables().size();
-            writer.writeJson(totalTableNumber);
+            writer.writeInt(totalTableNumber);
             List<Table> tables = database.getTables();
             for (Table table : tables) {
                 writer.writeJson(table);
@@ -5112,7 +5112,7 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler {
     }
 
     public void load(SRMetaBlockReader reader) throws IOException, SRMetaBlockException, SRMetaBlockEOFException {
-        int dbSize = reader.readJson(int.class);
+        int dbSize = reader.readInt();
         for (int i = 0; i < dbSize; ++i) {
             Database db = reader.readJson(Database.class);
             int tableSize = reader.readInt();
