@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.gson.annotations.SerializedName;
 import com.starrocks.common.Config;
 import com.starrocks.common.io.Text;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
 import com.starrocks.persist.metablock.SRMetaBlockException;
@@ -29,6 +29,7 @@ import com.starrocks.persist.metablock.SRMetaBlockWriter;
 import com.starrocks.server.GlobalStateMgr;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -46,7 +47,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.validation.constraints.NotNull;
 
-public class CompactionMgr implements MemoryTrackable {
+public class CompactionMgr implements MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(CompactionMgr.class);
 
     @SerializedName(value = "partitionStatisticsHashMap")
@@ -243,6 +244,11 @@ public class CompactionMgr implements MemoryTrackable {
         });
         LOG.info("Trigger manual compaction, {}", statistics);
         return statistics;
+    }
+
+    @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(partitionStatisticsHashMap);
     }
 
     @Override

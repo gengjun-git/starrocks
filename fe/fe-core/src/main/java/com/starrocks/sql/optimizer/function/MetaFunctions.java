@@ -32,7 +32,7 @@ import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.connector.PartitionInfo;
 import com.starrocks.connector.PartitionUtil;
 import com.starrocks.connector.hive.Partition;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.memory.MemoryUsageTracker;
 import com.starrocks.monitor.unit.ByteSizeValue;
 import com.starrocks.privilege.AccessDeniedException;
@@ -249,14 +249,14 @@ public class MetaFunctions {
 
     @ConstantFunction(name = "inspect_memory", argTypes = {VARCHAR}, returnType = VARCHAR, isMetaFunction = true)
     public static ConstantOperator inspectMemory(ConstantOperator moduleName) {
-        Map<String, MemoryTrackable> statMap = MemoryUsageTracker.REFERENCE.get(moduleName.getVarchar());
+        Map<String, MemoryTracker> statMap = MemoryUsageTracker.REFERENCE.get(moduleName.getVarchar());
         if (statMap == null) {
             ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     "Module " + moduleName + " not found.");
         }
         long estimateSize = 0;
-        for (Map.Entry<String, MemoryTrackable> statEntry : statMap.entrySet()) {
-            MemoryTrackable tracker = statEntry.getValue();
+        for (Map.Entry<String, MemoryTracker> statEntry : statMap.entrySet()) {
+            MemoryTracker tracker = statEntry.getValue();
             estimateSize += tracker.estimateSize();
         }
 
@@ -266,7 +266,7 @@ public class MetaFunctions {
     @ConstantFunction(name = "inspect_memory_detail", argTypes = {VARCHAR, VARCHAR},
             returnType = VARCHAR, isMetaFunction = true)
     public static ConstantOperator inspectMemoryDetail(ConstantOperator moduleName, ConstantOperator clazzInfo) {
-        Map<String, MemoryTrackable> statMap = MemoryUsageTracker.REFERENCE.get(moduleName.getVarchar());
+        Map<String, MemoryTracker> statMap = MemoryUsageTracker.REFERENCE.get(moduleName.getVarchar());
         if (statMap == null) {
             ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     "Module " + moduleName + " not found.");
@@ -280,7 +280,7 @@ public class MetaFunctions {
         } else {
             clazzName = classInfo;
         }
-        MemoryTrackable memoryTrackable = statMap.get(clazzName);
+        MemoryTracker memoryTrackable = statMap.get(clazzName);
         if (memoryTrackable == null) {
             ErrorReport.reportSemanticException(ErrorCode.ERR_INVALID_PARAMETER,
                     "In module " + moduleName + " - " + clazzName + " not found.");

@@ -38,7 +38,7 @@ public class MemoryUsageTracker extends FrontendDaemon {
 
     // Used to save references to metadata submodules which need to be tracked memory on.
     // If the object needs to be counted, it first needs to be added to this collection.
-    public static final Map<String, Map<String, MemoryTrackable>> REFERENCE =
+    public static final Map<String, Map<String, MemoryTracker>> REFERENCE =
             new ConcurrentSkipListMap<>(String.CASE_INSENSITIVE_ORDER);
 
     public static final Map<String, Map<String, MemoryStat>> MEMORY_USAGE = Maps.newConcurrentMap();
@@ -85,7 +85,7 @@ public class MemoryUsageTracker extends FrontendDaemon {
         initialize = true;
     }
 
-    public static void registerMemoryTracker(String moduleName, MemoryTrackable object) {
+    public static void registerMemoryTracker(String moduleName, MemoryTracker object) {
         REFERENCE.computeIfAbsent(moduleName, k -> new ConcurrentSkipListMap<>(String.CASE_INSENSITIVE_ORDER));
         REFERENCE.get(moduleName).put(object.getClass().getSimpleName(), object);
     }
@@ -95,14 +95,14 @@ public class MemoryUsageTracker extends FrontendDaemon {
         trackMemory(ImmutableMap.of("Connector", GlobalStateMgr.getCurrentState().getConnectorMgr().getMemTrackers()));
     }
 
-    private static void trackMemory(Map<String, Map<String, MemoryTrackable>> trackers) {
-        for (Map.Entry<String, Map<String, MemoryTrackable>> entry : trackers.entrySet()) {
+    private static void trackMemory(Map<String, Map<String, MemoryTracker>> trackers) {
+        for (Map.Entry<String, Map<String, MemoryTracker>> entry : trackers.entrySet()) {
             String moduleName = entry.getKey();
-            Map<String, MemoryTrackable> statMap = entry.getValue();
+            Map<String, MemoryTracker> statMap = entry.getValue();
 
-            for (Map.Entry<String, MemoryTrackable> statEntry : statMap.entrySet()) {
+            for (Map.Entry<String, MemoryTracker> statEntry : statMap.entrySet()) {
                 String className = statEntry.getKey();
-                MemoryTrackable tracker = statEntry.getValue();
+                MemoryTracker tracker = statEntry.getValue();
                 long startTime = System.currentTimeMillis();
                 long currentEstimateSize = tracker.estimateSize();
                 Map<String, Long> counterMap = tracker.estimateCount();

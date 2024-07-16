@@ -88,7 +88,7 @@ import com.starrocks.common.util.TimeUtils;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.lake.delete.LakeDeleteJob;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
 import com.starrocks.persist.metablock.SRMetaBlockException;
@@ -112,6 +112,7 @@ import com.starrocks.transaction.TransactionState.TxnSourceType;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -134,7 +135,7 @@ import java.util.UUID;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
-public class DeleteMgr implements Writable, MemoryTrackable {
+public class DeleteMgr implements Writable, MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(DeleteMgr.class);
 
     // TransactionId -> DeleteJob
@@ -923,13 +924,13 @@ public class DeleteMgr implements Writable, MemoryTrackable {
     }
 
     @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(dbToDeleteInfos) + SizeEstimator.estimate(idToDeleteJob);
+    }
+
+    @Override
     public Map<String, Long> estimateCount() {
-        long count = 0;
-        for (List<MultiDeleteInfo> value : dbToDeleteInfos.values()) {
-            count += value.size();
-        }
         return ImmutableMap.of("DeleteInfo", getDeleteInfoCount(),
                 "DeleteJob", (long) idToDeleteJob.size());
     }
-
 }

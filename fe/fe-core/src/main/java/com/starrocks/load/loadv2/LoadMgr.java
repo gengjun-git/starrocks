@@ -55,7 +55,7 @@ import com.starrocks.load.EtlJobType;
 import com.starrocks.load.FailMsg;
 import com.starrocks.load.FailMsg.CancelType;
 import com.starrocks.load.Load;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.persist.AlterLoadJobOperationLog;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
 import com.starrocks.persist.metablock.SRMetaBlockException;
@@ -75,6 +75,7 @@ import com.starrocks.transaction.TransactionState;
 import com.starrocks.transaction.TransactionStatus;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -105,7 +106,7 @@ import java.util.stream.Collectors;
  * LoadManager.lock
  * LoadJob.lock
  */
-public class LoadMgr implements Writable, MemoryTrackable {
+public class LoadMgr implements Writable, MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(LoadMgr.class);
 
     private final Map<Long, LoadJob> idToLoadJob = Maps.newConcurrentMap();
@@ -811,6 +812,11 @@ public class LoadMgr implements Writable, MemoryTrackable {
             writer.writeJson(loadJob);
         }
         writer.close();
+    }
+
+    @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(idToLoadJob) + SizeEstimator.estimate(dbIdToLabelToLoadJobs);
     }
 
     @Override

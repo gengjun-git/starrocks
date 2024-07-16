@@ -60,7 +60,7 @@ import com.starrocks.common.io.Writable;
 import com.starrocks.common.util.FrontendDaemon;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
 import com.starrocks.persist.metablock.SRMetaBlockException;
 import com.starrocks.persist.metablock.SRMetaBlockID;
@@ -83,6 +83,7 @@ import com.starrocks.thrift.TFinishTaskRequest;
 import com.starrocks.thrift.TTaskType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -101,7 +102,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static com.starrocks.scheduler.MVActiveChecker.MV_BACKUP_INACTIVE_REASON;
 
-public class BackupHandler extends FrontendDaemon implements Writable, MemoryTrackable {
+public class BackupHandler extends FrontendDaemon implements Writable, MemoryTracker {
 
     private static final Logger LOG = LogManager.getLogger(BackupHandler.class);
 
@@ -754,9 +755,12 @@ public class BackupHandler extends FrontendDaemon implements Writable, MemoryTra
     }
 
     @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(dbIdToBackupOrRestoreJob);
+    }
+
+    @Override
     public Map<String, Long> estimateCount() {
         return ImmutableMap.of("BackupOrRestoreJob", (long) dbIdToBackupOrRestoreJob.size());
     }
 }
-
-

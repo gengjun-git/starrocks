@@ -40,7 +40,7 @@ import com.starrocks.catalog.MvId;
 import com.starrocks.common.Config;
 import com.starrocks.common.UserException;
 import com.starrocks.common.util.DebugUtil;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.qe.scheduler.Coordinator;
 import com.starrocks.thrift.TBatchReportExecStatusParams;
 import com.starrocks.thrift.TBatchReportExecStatusResult;
@@ -64,7 +64,7 @@ import java.util.stream.Collectors;
 
 import static com.starrocks.mysql.MysqlCommand.COM_STMT_EXECUTE;
 
-public final class QeProcessorImpl implements QeProcessor, MemoryTrackable {
+public final class QeProcessorImpl implements QeProcessor, MemoryTracker {
 
     private static final Logger LOG = LogManager.getLogger(QeProcessorImpl.class);
     private static final long ONE_MINUTE = 60 * 1000L;

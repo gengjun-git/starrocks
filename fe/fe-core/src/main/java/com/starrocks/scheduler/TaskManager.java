@@ -29,7 +29,7 @@ import com.starrocks.common.DdlException;
 import com.starrocks.common.util.LogUtil;
 import com.starrocks.common.util.TimeUtils;
 import com.starrocks.common.util.concurrent.QueryableReentrantLock;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
 import com.starrocks.persist.metablock.SRMetaBlockException;
 import com.starrocks.persist.metablock.SRMetaBlockID;
@@ -70,7 +70,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.starrocks.scheduler.SubmitResult.SubmitStatus.SUBMITTED;
 
-public class TaskManager implements MemoryTrackable {
+public class TaskManager implements MemoryTracker {
 
     private static final Logger LOG = LogManager.getLogger(TaskManager.class);
 

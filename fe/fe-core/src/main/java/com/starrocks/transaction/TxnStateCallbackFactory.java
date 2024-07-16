@@ -20,6 +20,7 @@ package com.starrocks.transaction;
 import com.google.common.collect.Maps;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.util.Map;
 
@@ -52,5 +53,9 @@ public class TxnStateCallbackFactory {
 
     public synchronized long getCallBackCnt() {
         return callbacks.size();
+    }
+
+    public synchronized long estimateMemorySize() {
+        return SizeEstimator.estimate(callbacks);
     }
 }

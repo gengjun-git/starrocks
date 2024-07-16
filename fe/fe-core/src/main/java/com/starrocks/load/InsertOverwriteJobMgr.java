@@ -21,7 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.gson.annotations.SerializedName;
 import com.starrocks.common.io.Text;
 import com.starrocks.common.io.Writable;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.persist.CreateInsertOverwriteJobLog;
 import com.starrocks.persist.InsertOverwriteStateChangeInfo;
 import com.starrocks.persist.gson.GsonPostProcessable;
@@ -37,6 +37,7 @@ import com.starrocks.server.GlobalStateMgr;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -49,7 +50,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class InsertOverwriteJobMgr implements Writable, GsonPostProcessable, MemoryTrackable {
+public class InsertOverwriteJobMgr implements Writable, GsonPostProcessable, MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(InsertOverwriteJobMgr.class);
 
     @SerializedName(value = "overwriteJobMap")
@@ -266,6 +267,11 @@ public class InsertOverwriteJobMgr implements Writable, GsonPostProcessable, Mem
         overwriteJobMap = catalog.overwriteJobMap;
         tableToOverwriteJobs = catalog.tableToOverwriteJobs;
         runningJobs = catalog.runningJobs;
+    }
+
+    @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(overwriteJobMap);
     }
 
     @Override

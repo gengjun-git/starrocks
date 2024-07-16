@@ -15,9 +15,12 @@
 package com.starrocks.connector;
 
 import com.starrocks.connector.config.ConnectorConfig;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 
-public interface Connector extends MemoryTrackable {
+import java.util.HashMap;
+import java.util.Map;
+
+public interface Connector extends MemoryTracker {
     /**
      * Get the connector meta of connector
      *
@@ -43,5 +46,15 @@ public interface Connector extends MemoryTrackable {
 
     default boolean supportMemoryTrack() {
         return false;
+    }
+
+    @Override
+    default long estimateSize() {
+        return 0;
+    }
+
+    @Override
+    default Map<String, Long> estimateCount() {
+        return new HashMap<>();
     }
 }

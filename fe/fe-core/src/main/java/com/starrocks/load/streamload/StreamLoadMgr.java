@@ -32,7 +32,7 @@ import com.starrocks.common.util.LogKey;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.http.rest.TransactionResult;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
 import com.starrocks.persist.metablock.SRMetaBlockException;
 import com.starrocks.persist.metablock.SRMetaBlockID;
@@ -44,6 +44,7 @@ import com.starrocks.thrift.TNetworkAddress;
 import io.netty.handler.codec.http.HttpHeaders;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.DataInput;
 import java.io.DataOutputStream;
@@ -57,7 +58,7 @@ import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
-public class StreamLoadMgr implements MemoryTrackable {
+public class StreamLoadMgr implements MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(StreamLoadMgr.class);
 
     // label -> streamLoadTask
@@ -656,5 +657,12 @@ public class StreamLoadMgr implements MemoryTrackable {
     @Override
     public Map<String, Long> estimateCount() {
         return ImmutableMap.of("StreamLoad", (long) idToStreamLoadTask.size());
+    }
+
+    @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(idToStreamLoadTask)
+                + SizeEstimator.estimate(txnIdToSyncStreamLoadTasks)
+                + SizeEstimator.estimate(dbToLabelToStreamLoadTask);
     }
 }

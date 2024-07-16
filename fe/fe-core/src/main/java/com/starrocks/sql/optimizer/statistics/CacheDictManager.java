@@ -24,7 +24,7 @@ import com.starrocks.catalog.Database;
 import com.starrocks.common.Config;
 import com.starrocks.common.Pair;
 import com.starrocks.common.Status;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.optimizer.base.ColumnIdentifier;
@@ -32,6 +32,7 @@ import com.starrocks.thrift.TGlobalDict;
 import com.starrocks.thrift.TStatisticData;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.nio.ByteBuffer;
@@ -45,7 +46,7 @@ import java.util.concurrent.Executor;
 
 import static com.starrocks.statistic.StatisticExecutor.queryDictSync;
 
-public class CacheDictManager implements IDictManager, MemoryTrackable {
+public class CacheDictManager implements IDictManager, MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(CacheDictManager.class);
     private static final Set<ColumnIdentifier> NO_DICT_STRING_COLUMNS = Sets.newConcurrentHashSet();
     private static final Set<Long> FORBIDDEN_DICT_TABLE_IDS = Sets.newConcurrentHashSet();
@@ -291,6 +292,11 @@ public class CacheDictManager implements IDictManager, MemoryTrackable {
             }
         }
         return Optional.empty();
+    }
+
+    @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(dictStatistics);
     }
 
     @Override

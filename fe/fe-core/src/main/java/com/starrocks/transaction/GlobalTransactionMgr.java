@@ -49,7 +49,7 @@ import com.starrocks.common.UserException;
 import com.starrocks.common.util.concurrent.lock.LockTimeoutException;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.metric.MetricRepo;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
 import com.starrocks.persist.metablock.SRMetaBlockException;
@@ -66,6 +66,7 @@ import org.apache.commons.lang3.time.StopWatch;
 import org.apache.hadoop.util.ThreadUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -87,7 +88,7 @@ import javax.validation.constraints.NotNull;
  * Attention: all api in txn manager should get db lock or load lock first, then get txn manager's lock, or
  * there will be dead lock
  */
-public class GlobalTransactionMgr implements MemoryTrackable {
+public class GlobalTransactionMgr implements MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(GlobalTransactionMgr.class);
 
     private final Map<Long, DatabaseTransactionMgr> dbIdToDatabaseTransactionMgrs = Maps.newConcurrentMap();
@@ -850,6 +851,15 @@ public class GlobalTransactionMgr implements MemoryTrackable {
         }
 
         return databaseTransactionMgr.hasCommittedTxnOnPartition(tableId, partitionId);
+    }
+
+    @Override
+    public long estimateSize() {
+        long size = dbIdToDatabaseTransactionMgrs.values().stream()
+                .mapToLong(DatabaseTransactionMgr::estimateMemorySize).sum();
+        size += callbackFactory.estimateMemorySize();
+
+        return size;
     }
 
     @Override

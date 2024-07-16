@@ -20,7 +20,7 @@ import com.starrocks.catalog.Database;
 import com.starrocks.common.MetaNotFoundException;
 import com.starrocks.connector.ConnectorViewDefinition;
 import com.starrocks.connector.exception.StarRocksConnectorException;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -44,7 +44,7 @@ import java.util.concurrent.ExecutorService;
 import static com.starrocks.connector.PartitionUtil.convertIcebergPartitionToPartitionName;
 import static org.apache.iceberg.StarRocksIcebergTableScan.newTableScanContext;
 
-public interface IcebergCatalog extends MemoryTrackable {
+public interface IcebergCatalog extends MemoryTracker {
 
     IcebergCatalogType getIcebergCatalogType();
 
@@ -149,6 +149,16 @@ public interface IcebergCatalog extends MemoryTrackable {
     }
 
     default Map<String, Object> loadNamespaceMetadata(String dbName) {
+        return new HashMap<>();
+    }
+
+    @Override
+    default long estimateSize() {
+        return 0;
+    }
+
+    @Override
+    default Map<String, Long> estimateCount() {
         return new HashMap<>();
     }
 }

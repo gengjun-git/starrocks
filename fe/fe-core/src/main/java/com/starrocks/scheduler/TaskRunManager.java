@@ -21,7 +21,7 @@ import com.starrocks.common.Config;
 import com.starrocks.common.util.LogUtil;
 import com.starrocks.common.util.UUIDUtil;
 import com.starrocks.common.util.concurrent.QueryableReentrantLock;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.scheduler.history.TaskRunHistory;
 import com.starrocks.scheduler.persist.TaskRunStatus;
@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-public class TaskRunManager implements MemoryTrackable {
+public class TaskRunManager implements MemoryTracker {
 
     private static final Logger LOG = LogManager.getLogger(TaskRunManager.class);
 
@@ -286,7 +286,12 @@ public class TaskRunManager implements MemoryTrackable {
                 "RunningTaskRun", (long) taskRunScheduler.getRunningTaskCount(),
                 "HistoryTaskRun", taskRunHistory.getTaskRunCount());
     }
-  
+
+    @Override
+    public long estimateSize() {
+        return taskRunHistory.estimateMemorySize();
+    }
+
     /**
      * For diagnosis purpose
      *

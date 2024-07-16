@@ -20,7 +20,7 @@ import org.apache.spark.util.SizeEstimator;
 
 import java.util.Map;
 
-public class AgentTaskTracker implements MemoryTrackable {
+public class AgentTaskTracker implements MemoryTracker {
     @Override
     public long estimateSize() {
         return SizeEstimator.estimate(AgentTaskQueue.tasks);

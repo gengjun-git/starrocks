@@ -20,7 +20,7 @@ import org.apache.spark.util.SizeEstimator;
 
 import java.util.Map;
 
-public class QueryTracker implements MemoryTrackable {
+public class QueryTracker implements MemoryTracker {
     @Override
     public long estimateSize() {
         return SizeEstimator.estimate(QueryDetailQueue.TOTAL_QUERIES);

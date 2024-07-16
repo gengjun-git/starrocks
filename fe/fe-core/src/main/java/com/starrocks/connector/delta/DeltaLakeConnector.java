@@ -82,4 +82,6 @@ public class DeltaLakeConnector implements Connector {
         updateProcessor.ifPresent(processor -> GlobalStateMgr.getCurrentState().getConnectorTableMetadataProcessor()
                         .registerCacheUpdateProcessor(catalogName, updateProcessor.get()));
     }
+
+
 }

@@ -77,6 +77,7 @@ import io.opentelemetry.api.trace.Span;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -2010,5 +2011,11 @@ public class DatabaseTransactionMgr {
 
     public void updateDatabaseUsedQuotaData(long usedQuotaDataBytes) {
         this.usedQuotaDataBytes = usedQuotaDataBytes;
+    }
+
+    public long estimateMemorySize() {
+        return SizeEstimator.estimate(idToRunningTransactionState)
+                + SizeEstimator.estimate(idToFinalStatusTransactionState)
+                + SizeEstimator.estimate(finalStatusTransactionStateDeque);
     }
 }

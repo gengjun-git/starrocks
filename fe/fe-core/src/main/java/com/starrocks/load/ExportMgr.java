@@ -49,7 +49,7 @@ import com.starrocks.common.UserException;
 import com.starrocks.common.util.ListComparator;
 import com.starrocks.common.util.OrderByPair;
 import com.starrocks.common.util.TimeUtils;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.persist.metablock.SRMetaBlockEOFException;
 import com.starrocks.persist.metablock.SRMetaBlockException;
 import com.starrocks.persist.metablock.SRMetaBlockID;
@@ -64,6 +64,7 @@ import com.starrocks.sql.ast.ExportStmt;
 import com.starrocks.sql.common.MetaUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -78,7 +79,7 @@ import java.util.UUID;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
-public class ExportMgr implements MemoryTrackable {
+public class ExportMgr implements MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(ExportJob.class);
 
     // lock for export job
@@ -473,6 +474,11 @@ public class ExportMgr implements MemoryTrackable {
             }
             unprotectAddJob(job);
         }
+    }
+
+    @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(idToJob);
     }
 
     @Override

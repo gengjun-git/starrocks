@@ -49,7 +49,7 @@ import com.starrocks.common.Pair;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.lake.LakeTablet;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.server.LocalMetastore;
 import com.starrocks.system.Backend;
@@ -64,6 +64,7 @@ import com.starrocks.transaction.TransactionState;
 import com.starrocks.transaction.TransactionStatus;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.spark.util.SizeEstimator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -80,7 +81,7 @@ import java.util.stream.Collectors;
  * Checkpoint thread is no need to modify this inverted index, because this inverted index will not be written
  * into image, all metadata are in globalStateMgr, and the inverted index will be rebuilt when FE restart.
  */
-public class TabletInvertedIndex implements MemoryTrackable {
+public class TabletInvertedIndex implements MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(TabletInvertedIndex.class);
 
     public static final int NOT_EXIST_VALUE = -1;
@@ -882,6 +883,15 @@ public class TabletInvertedIndex implements MemoryTrackable {
         return ImmutableMap.of("TabletMeta", (long) tabletMetaMap.size(),
                                "TabletCount", getTabletCount(),
                                "ReplicateCount", getReplicaCount());
+    }
+
+    @Override
+    public long estimateSize() {
+        return SizeEstimator.estimate(tabletMetaMap)
+                + SizeEstimator.estimate(replicaToTabletMap)
+                + SizeEstimator.estimate(forceDeleteTablets)
+                + SizeEstimator.estimate(replicaMetaTable)
+                + SizeEstimator.estimate(backingReplicaMetaTable);
     }
 }
 

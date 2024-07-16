@@ -78,7 +78,7 @@ import com.starrocks.common.util.TimeUtils;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.datacache.DataCacheMetrics;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import com.starrocks.metric.GaugeMetric;
 import com.starrocks.metric.Metric.MetricUnit;
 import com.starrocks.metric.MetricRepo;
@@ -140,7 +140,7 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Collectors;
 
-public class ReportHandler extends Daemon implements MemoryTrackable {
+public class ReportHandler extends Daemon implements MemoryTracker {
     @Override
     public long estimateSize() {
         return SizeEstimator.estimate(reportQueue) + SizeEstimator.estimate(pendingTaskMap);

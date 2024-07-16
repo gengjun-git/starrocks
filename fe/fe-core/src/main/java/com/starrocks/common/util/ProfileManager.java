@@ -39,7 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.starrocks.common.Config;
-import com.starrocks.memory.MemoryTrackable;
+import com.starrocks.memory.MemoryTracker;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.spark.util.SizeEstimator;
@@ -63,7 +63,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
  * the purpose is let coordinator can destruct earlier(the fragment profile is in Coordinator)
  *
  */
-public class ProfileManager implements MemoryTrackable {
+public class ProfileManager implements MemoryTracker {
     private static final Logger LOG = LogManager.getLogger(ProfileManager.class);
     private static ProfileManager INSTANCE = null;
     public static final String QUERY_ID = "Query ID";
