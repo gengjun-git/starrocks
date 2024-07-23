@@ -301,6 +301,8 @@ public class ColocateTableIndex implements Writable {
                     GlobalStateMgr.getCurrentState().getEditLog().logColocateMarkUnstable(info);
                 }
                 LOG.info("mark group {} as unstable", groupId);
+                System.out.println("mark group " + groupId + " unstable");
+                new Exception().printStackTrace();
             }
         } finally {
             writeUnlock();

@@ -14,6 +14,8 @@
 
 package com.starrocks.sql.optimizer.rule.transformation.materialization;
 
+import com.starrocks.catalog.ColocateTableIndex;
+import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.plan.PlanTestBase;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -241,6 +243,12 @@ public class MvRewriteJoinTest extends MvRewriteTestBase {
                 "  |  join op: INNER JOIN (COLOCATE)\n" +
                 "  |  colocate: true\n" +
                 "  |  equal join conjunct: 1: k1 = 4: k1");
+
+        long tableId = GlobalStateMgr.getCurrentState().getDb(DB_NAME)
+                .getTable("test_partition_tbl1_colocate_mv1").getId();
+        ColocateTableIndex.GroupId groupId = GlobalStateMgr.getCurrentState().getColocateTableIndex().getGroup(tableId);
+        System.out.println("group " + groupId + " is unstable: " +
+                GlobalStateMgr.getCurrentState().getColocateTableIndex().isGroupUnstable(groupId));
 
         starRocksAssert.dropMaterializedView("test_partition_tbl1_colocate_mv1");
         starRocksAssert.dropMaterializedView("test_partition_tbl1_colocate_mv2");
