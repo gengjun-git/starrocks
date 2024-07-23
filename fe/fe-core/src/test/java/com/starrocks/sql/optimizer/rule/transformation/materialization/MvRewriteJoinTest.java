@@ -239,16 +239,16 @@ public class MvRewriteJoinTest extends MvRewriteTestBase {
         String query = "select t1.v2 + 1, t2.v2 + 1 from test_partition_tbl1 t1 join " +
                 "test_partition_tbl1 t2 on t1.k1 = t2.k1 and t2.v1 > 1";
         String plan = getFragmentPlan(query);
-        PlanTestBase.assertContains(plan, "4:HASH JOIN\n" +
-                "  |  join op: INNER JOIN (COLOCATE)\n" +
-                "  |  colocate: true\n" +
-                "  |  equal join conjunct: 1: k1 = 4: k1");
-
         long tableId = GlobalStateMgr.getCurrentState().getDb(DB_NAME)
                 .getTable("test_partition_tbl1_colocate_mv1").getId();
         ColocateTableIndex.GroupId groupId = GlobalStateMgr.getCurrentState().getColocateTableIndex().getGroup(tableId);
         System.out.println("group " + groupId + " is unstable: " +
                 GlobalStateMgr.getCurrentState().getColocateTableIndex().isGroupUnstable(groupId));
+
+        PlanTestBase.assertContains(plan, "4:HASH JOIN\n" +
+                "  |  join op: INNER JOIN (COLOCATE)\n" +
+                "  |  colocate: true\n" +
+                "  |  equal join conjunct: 1: k1 = 4: k1");
 
         starRocksAssert.dropMaterializedView("test_partition_tbl1_colocate_mv1");
         starRocksAssert.dropMaterializedView("test_partition_tbl1_colocate_mv2");
