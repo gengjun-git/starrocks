@@ -725,11 +725,13 @@ public class ColocateTableBalancer extends FrontendDaemon {
         List<Long> tableIds = colocateIndex.getAllTableIds(groupId);
         Database db = globalStateMgr.getDbIncludeRecycleBin(groupId.dbId);
         if (db == null) {
+            System.out.println("unstable because: db " + groupId.dbId + " not exist");
             return new ColocateMatchResult(lockTotalTime, false);
         }
 
         List<Set<Long>> backendBucketsSeq = colocateIndex.getBackendsPerBucketSeqSet(groupId);
         if (backendBucketsSeq.isEmpty()) {
+            System.out.println("unstable because: seq is empty");
             return new ColocateMatchResult(lockTotalTime, false);
         }
 
@@ -768,6 +770,7 @@ public class ColocateTableBalancer extends FrontendDaemon {
                         db.readLock();
                         lockStart = System.nanoTime();
                         if (globalStateMgr.getDbIncludeRecycleBin(groupId.dbId) == null) {
+                            System.out.println("unstable because: db " + groupId.dbId + " not exist");
                             return new ColocateMatchResult(lockTotalTime, false);
                         }
                         if (globalStateMgr.getTableIncludeRecycleBin(db, olapTable.getId()) == null) {
@@ -802,6 +805,7 @@ public class ColocateTableBalancer extends FrontendDaemon {
                                         st = TabletChecker.getColocateTabletHealthStatus(tablet, visibleVersion,
                                         replicationNum, bucketsSeq);
                                 if (st != TabletHealthStatus.HEALTHY) {
+                                    System.out.println("unstable because tablet " + tableId + " status is " + st);
                                     isGroupStable = false;
                                     Priority colocateUnhealthyPrio = Priority.HIGH;
                                     if (isPartitionUrgent) {
