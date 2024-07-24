@@ -420,7 +420,7 @@ public class ReportHandler extends Daemon implements MemoryTrackable {
                 ReportHandler.diskReport(beId, disks);
             }
             if (tablets != null) {
-                ReportHandler.tabletReport(beId, tablets, reportVersion);
+                // ReportHandler.tabletReport(beId, tablets, reportVersion);
             }
             if (activeWorkGroups != null) {
                 ReportHandler.workgroupReport(beId, activeWorkGroups);

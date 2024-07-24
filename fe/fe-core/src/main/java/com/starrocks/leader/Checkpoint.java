@@ -34,6 +34,7 @@
 
 package com.starrocks.leader;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import com.starrocks.common.Config;
 import com.starrocks.common.FeConstants;
@@ -242,7 +243,10 @@ public class Checkpoint extends FrontendDaemon {
         globalStateMgr.setEditLog(new EditLog(null));
         globalStateMgr.setJournal(journal);
         try {
+            Stopwatch stopwatch = Stopwatch.createStarted();
             globalStateMgr.loadImage(imageDir);
+            stopwatch.stop();
+            LOG.info("load image used: {}", stopwatch.elapsed());
             globalStateMgr.replayJournal(logVersion);
             globalStateMgr.clearExpiredJobs();
             globalStateMgr.saveImage();

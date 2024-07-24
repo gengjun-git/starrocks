@@ -37,6 +37,7 @@ package com.starrocks.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -1090,7 +1091,10 @@ public class GlobalStateMgr {
 
             // 3. Load image first and replay edits
             initJournal();
+            Stopwatch stopwatch = Stopwatch.createStarted();
             loadImage(this.imageDir); // load image file
+            stopwatch.stop();
+            LOG.warn("load image used: {}", stopwatch.elapsed());
 
             // 4. create load and export job label cleaner thread
             createLabelCleaner();
@@ -1595,13 +1599,21 @@ public class GlobalStateMgr {
 
     // Only called by checkpoint thread
     public void saveImage() throws IOException {
+        Stopwatch stopwatch = Stopwatch.createUnstarted();
         try {
+            stopwatch.start();
             saveImage(ImageFormatVersion.v1);
+            stopwatch.stop();
+            LOG.info("save image v1 used: {}", stopwatch.elapsed());
         } catch (Exception e) {
             // image v1 may fail because of byte[] size overflow, ignore
             LOG.warn("save image v1 failed, ignore", e);
         }
+        stopwatch.reset();
+        stopwatch.start();
         saveImage(ImageFormatVersion.v2);
+        stopwatch.stop();
+        LOG.info("save image v2 used: {}", stopwatch.elapsed());
     }
 
     public void saveImage(ImageFormatVersion formatVersion) throws IOException {

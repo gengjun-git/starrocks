@@ -111,7 +111,6 @@ import com.starrocks.common.MaterializedViewExceptions;
 import com.starrocks.common.MetaNotFoundException;
 import com.starrocks.common.Pair;
 import com.starrocks.common.Status;
-import com.starrocks.common.TimeoutException;
 import com.starrocks.common.UserException;
 import com.starrocks.common.util.DynamicPartitionUtil;
 import com.starrocks.common.util.PropertyAnalyzer;
@@ -1860,42 +1859,43 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler {
         MarkedCountDownLatch<Long, Long> countDownLatch = new MarkedCountDownLatch<>(numReplicas);
         Map<Long, List<Long>> taskSignatures = new HashMap<>();
         try {
-            int numFinishedTasks;
-            int numSendedTasks = 0;
-            long startTime = System.currentTimeMillis();
-            long maxWaitTimeMs = Math.min(timeout, maxTimeout) * 1000L;
-            for (PhysicalPartition partition : partitions) {
-                if (!countDownLatch.getStatus().ok()) {
-                    break;
-                }
-                List<CreateReplicaTask> tasks = buildCreateReplicaTasks(dbId, table, partition, warehouseId,
-                        enableTabletCreationOptimization);
-                for (CreateReplicaTask task : tasks) {
-                    List<Long> signatures =
-                            taskSignatures.computeIfAbsent(task.getBackendId(), k -> new ArrayList<>());
-                    signatures.add(task.getSignature());
-                }
-                sendCreateReplicaTasks(tasks, countDownLatch);
-                numSendedTasks += tasks.size();
-                numFinishedTasks = numReplicas - (int) countDownLatch.getCount();
-                // Since there is no mechanism to cancel tasks, if we send a lot of tasks at once and some error or timeout
-                // occurs in the middle of the process, it will create a lot of useless replicas that will be deleted soon and
-                // waste machine resources. Sending a lot of tasks at once may also block other users' tasks for a long time.
-                // To avoid these situations, new tasks are sent only when the average number of tasks on each node is less
-                // than 200.
-                // (numSendedTasks - numFinishedTasks) is number of tasks that have been sent but not yet finished.
-                while (numSendedTasks - numFinishedTasks > 200 * numBackends) {
-                    long currentTime = System.currentTimeMillis();
-                    // Add timeout check
-                    if (currentTime > startTime + maxWaitTimeMs) {
-                        throw new TimeoutException("Wait in buildPartitionsConcurrently exceeded timeout");
-                    }
-                    ThreadUtil.sleepAtLeastIgnoreInterrupts(100);
-                    numFinishedTasks = numReplicas - (int) countDownLatch.getCount();
-                }
-            }
+            //int numFinishedTasks;
+            //int numSendedTasks = 0;
+            //long startTime = System.currentTimeMillis();
+            //long maxWaitTimeMs = Math.min(timeout, maxTimeout) * 1000L;
+            //for (PhysicalPartition partition : partitions) {
+            //    if (!countDownLatch.getStatus().ok()) {
+            //        break;
+            //    }
+            //    List<CreateReplicaTask> tasks = buildCreateReplicaTasks(dbId, table, partition, warehouseId,
+            //            enableTabletCreationOptimization);
+            //    for (CreateReplicaTask task : tasks) {
+            //        List<Long> signatures =
+            //                taskSignatures.computeIfAbsent(task.getBackendId(), k -> new ArrayList<>());
+            //        signatures.add(task.getSignature());
+            //    }
+            //    // sendCreateReplicaTasks(tasks, countDownLatch);
+            //    numSendedTasks += tasks.size();
+            //    numFinishedTasks = numReplicas - (int) countDownLatch.getCount();
+            //    // Since there is no mechanism to cancel tasks, if we send a lot of tasks at once and some error or timeout
+            //    // occurs in the middle of the process, it will create a lot of useless replicas that will be deleted soon and
+            //    // waste machine resources. Sending a lot of tasks at once may also block other users' tasks for a long time.
+            //    // To avoid these situations, new tasks are sent only when the average number of tasks on each node is less
+            //    // than 200.
+            //    // (numSendedTasks - numFinishedTasks) is number of tasks that have been sent but not yet finished.
+            //    while (numSendedTasks - numFinishedTasks > 200 * numBackends) {
+            //        long currentTime = System.currentTimeMillis();
+            //        // Add timeout check
+            //        if (currentTime > startTime + maxWaitTimeMs) {
+            //            throw new TimeoutException("Wait in buildPartitionsConcurrently exceeded timeout");
+            //        }
+            //        ThreadUtil.sleepAtLeastIgnoreInterrupts(100);
+            //        numFinishedTasks = numReplicas - (int) countDownLatch.getCount();
+            //    }
+            //}
             LOG.info("build partitions concurrently for {}, waiting for all tasks finish with timeout {}s",
                     table.getName(), Math.min(timeout, maxTimeout));
+            countDownLatch.countDownToZero(Status.OK);
             waitForFinished(countDownLatch, Math.min(timeout, maxTimeout));
             LOG.info("build partitions concurrently for {}, all tasks finished, took {}ms",
                     table.getName(), System.currentTimeMillis() - start);
@@ -2012,7 +2012,8 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler {
     private void sendCreateReplicaTasksAndWaitForFinished(List<CreateReplicaTask> tasks, long timeout)
             throws DdlException {
         MarkedCountDownLatch<Long, Long> countDownLatch = new MarkedCountDownLatch<>(tasks.size());
-        sendCreateReplicaTasks(tasks, countDownLatch);
+        // sendCreateReplicaTasks(tasks, countDownLatch);
+        countDownLatch.countDownToZero(Status.OK);
         waitForFinished(countDownLatch, timeout);
     }
 
