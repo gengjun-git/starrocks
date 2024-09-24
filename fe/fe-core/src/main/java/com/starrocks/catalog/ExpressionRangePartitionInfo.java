@@ -35,6 +35,7 @@ import com.starrocks.sql.analyzer.PartitionExprAnalyzer;
 import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.ast.AstVisitor;
 import com.starrocks.sql.optimizer.rule.transformation.materialization.MvUtils;
+import com.starrocks.sql.parser.ParsingException;
 import com.starrocks.sql.parser.SqlParser;
 import org.apache.commons.collections4.map.CaseInsensitiveMap;
 import org.apache.logging.log4j.LogManager;
@@ -92,7 +93,20 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
         List<Expr> partitionExprs = Lists.newArrayList();
         for (GsonUtils.ExpressionSerializedObject expressionSql : serializedPartitionExprs) {
             if (expressionSql.expressionSql != null) {
-                partitionExprs.add(SqlParser.parseSqlToExpr(expressionSql.expressionSql, SqlModeHelper.MODE_DEFAULT));
+                try {
+                    partitionExprs.add(SqlParser.parseSqlToExpr(expressionSql.expressionSql, SqlModeHelper.MODE_DEFAULT));
+                } catch (ParsingException e) {
+                    if (expressionSql.expressionSql.contains("date_trunc")) {
+                        partitionExprs.add(SqlParser.parseSqlToExpr(replaceTrunc(expressionSql.expressionSql),
+                                SqlModeHelper.MODE_DEFAULT));
+                    } else if (expressionSql.expressionSql.contains("time_slice")) {
+                        partitionExprs.add(SqlParser.parseSqlToExpr(replaceSlice(expressionSql.expressionSql),
+                                SqlModeHelper.MODE_DEFAULT));
+                    } else {
+                        throw e;
+                    }
+                    LOG.warn("parse expression sql: {} failed", expressionSql.expressionSql, e);
+                }
             }
         }
 
@@ -116,6 +130,14 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
             analyzePartitionExpressionExpr(slotRef, partitionColumn, expr);
         }
         this.partitionExprs = partitionExprs;
+    }
+
+    public String replaceTrunc(String sql) {
+        return sql.replace(", ", ", `").replace(")", "`)");
+    }
+
+    public String replaceSlice(String sql) {
+        return sql.replace("(", "(`").replaceFirst(",", "`,");
     }
 
     /**
