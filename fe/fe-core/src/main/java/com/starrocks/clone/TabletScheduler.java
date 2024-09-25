@@ -439,31 +439,35 @@ public class TabletScheduler extends FrontendDaemon {
             return;
         }
 
-        boolean loadStatUpdated = false;
-        if (System.currentTimeMillis() - lastStatUpdateTime > STAT_UPDATE_INTERVAL_MS) {
-            updateClusterLoadStatisticsAndPriority();
-            loadStatUpdated = true;
-        }
-
-        schedulePendingTablets();
-
-        handleRunningTablets();
-
-        // selectTabletsForBalance should depend on latest load statistics
-        // do not select others balance task when there is running or pending balance tasks
-        // to avoid generating repeated task
-        if (loadStatUpdated && getBalanceTabletsNumber() <= 0) {
-            long startTS = System.currentTimeMillis();
-            selectTabletsForBalance();
-            long usedTS = System.currentTimeMillis() - startTS;
-            if (usedTS > 1000L) {
-                LOG.warn("select balance tablets cost too much time: {} seconds", usedTS / 1000L);
+        try {
+            boolean loadStatUpdated = false;
+            if (System.currentTimeMillis() - lastStatUpdateTime > STAT_UPDATE_INTERVAL_MS) {
+                updateClusterLoadStatisticsAndPriority();
+                loadStatUpdated = true;
             }
+
+            schedulePendingTablets();
+
+            handleRunningTablets();
+
+            // selectTabletsForBalance should depend on latest load statistics
+            // do not select others balance task when there is running or pending balance tasks
+            // to avoid generating repeated task
+            if (loadStatUpdated && getBalanceTabletsNumber() <= 0) {
+                long startTS = System.currentTimeMillis();
+                selectTabletsForBalance();
+                long usedTS = System.currentTimeMillis() - startTS;
+                if (usedTS > 1000L) {
+                    LOG.warn("select balance tablets cost too much time: {} seconds", usedTS / 1000L);
+                }
+            }
+
+            handleForceCleanSchedQ();
+
+            stat.counterTabletScheduleRound.incrementAndGet();
+        } catch (Throwable t) {
+            LOG.warn("TabletScheduler exception", t);
         }
-
-        handleForceCleanSchedQ();
-
-        stat.counterTabletScheduleRound.incrementAndGet();
     }
 
     private void updateClusterLoadStatisticsAndPriority() {
