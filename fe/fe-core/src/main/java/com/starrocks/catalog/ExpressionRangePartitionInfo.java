@@ -31,6 +31,7 @@ import com.starrocks.persist.gson.GsonPreProcessable;
 import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.SqlModeHelper;
 import com.starrocks.sql.analyzer.AnalyzerUtils;
+import com.starrocks.sql.analyzer.AstToStringBuilder;
 import com.starrocks.sql.analyzer.PartitionExprAnalyzer;
 import com.starrocks.sql.analyzer.SemanticException;
 import com.starrocks.sql.ast.AstVisitor;
@@ -80,7 +81,8 @@ public class ExpressionRangePartitionInfo extends RangePartitionInfo implements 
         List<GsonUtils.ExpressionSerializedObject> serializedPartitionExprs = Lists.newArrayList();
         for (Expr partitionExpr : partitionExprs) {
             if (partitionExpr != null) {
-                serializedPartitionExprs.add(new GsonUtils.ExpressionSerializedObject(partitionExpr.toSql()));
+                serializedPartitionExprs.add(new GsonUtils.ExpressionSerializedObject(
+                        AstToStringBuilder.toString(partitionExpr)));
             }
         }
         this.serializedPartitionExprs = serializedPartitionExprs;
