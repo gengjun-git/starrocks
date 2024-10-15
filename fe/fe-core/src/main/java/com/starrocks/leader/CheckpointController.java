@@ -51,9 +51,6 @@ import com.starrocks.staros.StarMgrServer;
 import com.starrocks.system.Frontend;
 import io.trino.hive.$internal.com.google.common.base.Strings;
 import org.apache.commons.io.output.NullOutputStream;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -190,9 +187,8 @@ public class CheckpointController extends FrontendDaemon {
                         + "&for_global_state=" + belongToGlobalStateMgr
                         + "&image_format_version=" + formatVersion.toString();
                 try {
-                    CloseableHttpClient httpclient = HttpClients.createDefault();
-                    HttpGet httpget = new HttpGet(url);
-                    MetaHelper.getRemoteFile(url, PUT_TIMEOUT_SECOND * 1000, new NullOutputStream());
+                    MetaHelper.httpGet(url, PUT_TIMEOUT_SECOND * 1000);
+
                     LOG.info("push image successfully, url = {}", url);
                     if (MetricRepo.hasInit) {
                         MetricRepo.COUNTER_IMAGE_PUSH.increase(1L);
