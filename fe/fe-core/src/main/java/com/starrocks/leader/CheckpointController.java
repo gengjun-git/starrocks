@@ -50,7 +50,6 @@ import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.staros.StarMgrServer;
 import com.starrocks.system.Frontend;
 import io.trino.hive.$internal.com.google.common.base.Strings;
-import org.apache.commons.io.output.NullOutputStream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
