@@ -52,12 +52,17 @@ public class RestBaseResult {
     private static final RestBaseResult OK = new RestBaseResult();
     // For compatibility, status still exists in /api/v1, removed in /api/v2 and later version.
     @Legacy
+    @SerializedName("status")
     public ActionStatus status;
+
     @SerializedName("code")
     public String code;
+
     // For compatibility, msg still exists in /api/v1, removed in /api/v2 and later version.
     @Legacy
+    @SerializedName("msg")
     public String msg;
+
     @SerializedName("message")
     public String message;
 
@@ -91,5 +96,9 @@ public class RestBaseResult {
 
     public String getMessage() {
         return message;
+    }
+
+    public ActionStatus getStatus() {
+        return status;
     }
 }

@@ -34,7 +34,6 @@
 
 package com.starrocks.leader;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.starrocks.common.Config;
 import com.starrocks.common.FeConstants;
@@ -42,12 +41,10 @@ import com.starrocks.common.util.FrontendDaemon;
 import com.starrocks.common.util.NetUtils;
 import com.starrocks.journal.Journal;
 import com.starrocks.metric.MetricRepo;
-import com.starrocks.persist.EditLog;
 import com.starrocks.persist.ImageFormatVersion;
 import com.starrocks.persist.MetaCleaner;
 import com.starrocks.persist.Storage;
 import com.starrocks.server.GlobalStateMgr;
-import com.starrocks.staros.StarMgrServer;
 import com.starrocks.system.Frontend;
 import io.trino.hive.$internal.com.google.common.base.Strings;
 import org.apache.logging.log4j.LogManager;
@@ -223,56 +220,7 @@ public class CheckpointController extends FrontendDaemon {
     }
 
     private boolean createImage(long logVersion) {
-        if (belongToGlobalStateMgr) {
-            return replayAndGenerateGlobalStateMgrImage(logVersion);
-        } else {
-            return replayAndGenerateStarMgrImage(logVersion);
-        }
-    }
-
-    private boolean replayAndGenerateGlobalStateMgrImage(long logVersion) {
-        Preconditions.checkState(belongToGlobalStateMgr,
-                "generate global state mgr checkpoint, but belongToGlobalStateMgr is false");
-        long replayedJournalId = -1;
-        // generate new image file
-        LOG.info("begin to generate new image: image.{}", logVersion);
-        GlobalStateMgr globalStateMgr = GlobalStateMgr.getCurrentState();
-        globalStateMgr.setEditLog(new EditLog(null));
-        globalStateMgr.setJournal(journal);
-        try {
-            globalStateMgr.loadImage(imageDir);
-            globalStateMgr.initDefaultWarehouse();
-            globalStateMgr.replayJournal(logVersion);
-            globalStateMgr.clearExpiredJobs();
-            globalStateMgr.saveImage();
-            replayedJournalId = globalStateMgr.getReplayedJournalId();
-            if (MetricRepo.hasInit) {
-                MetricRepo.COUNTER_IMAGE_WRITE.increase(1L);
-            }
-            GlobalStateMgr.getServingState().setImageJournalId(logVersion);
-            LOG.info("checkpoint finished save image.{}", replayedJournalId);
-            return true;
-        } catch (Exception e) {
-            LOG.error("Exception when generate new image file", e);
-            return false;
-        } finally {
-            GlobalStateMgr.destroyCheckpoint();
-        }
-    }
-
-    private boolean replayAndGenerateStarMgrImage(long logVersion) {
-        Preconditions.checkState(!belongToGlobalStateMgr,
-                "generate star mgr checkpoint, but belongToGlobalStateMgr is true");
-        StarMgrServer starMgrServer = StarMgrServer.getCurrentState();
-        try {
-            return starMgrServer.replayAndGenerateImage(imageDir, logVersion);
-        } catch (Exception e) {
-            LOG.error("Exception when generate new star mgr image file", e);
-            return false;
-        } finally {
-            // destroy checkpoint, reclaim memory
-            StarMgrServer.destroyCheckpoint();
-        }
+        return true;
     }
 
     private long getMinReplayedJournalId() {
