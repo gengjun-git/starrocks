@@ -24,7 +24,7 @@ import com.starrocks.ha.StateChangeExecution;
 import com.starrocks.journal.bdbje.BDBEnvironment;
 import com.starrocks.journal.bdbje.BDBJEJournal;
 import com.starrocks.lake.StarOSAgent;
-import com.starrocks.leader.Checkpoint;
+import com.starrocks.leader.CheckpointController;
 import com.starrocks.metric.MetricVisitor;
 import com.starrocks.metric.PrometheusRegistryHelper;
 import com.starrocks.persist.Storage;
@@ -48,7 +48,7 @@ public class StarMgrServer {
     private static final Logger LOG = LogManager.getLogger(StarMgrServer.class);
 
     private static StarMgrServer CHECKPOINT = null;
-    private Checkpoint checkpointer = null;
+    private CheckpointController checkpointer = null;
     private static long checkpointThreadId = -1;
     private String imageDir;
     private StateChangeExecution execution;
@@ -178,8 +178,8 @@ public class StarMgrServer {
         getStarMgr().becomeLeader();
 
         // start checkpoint thread after everything is ready
-        checkpointer = new Checkpoint("star mgr LeaderCheckpointer", getJournalSystem().getJournal(), IMAGE_SUBDIR,
-                false /* belongToGlobalStateMgr */);
+        checkpointer = new CheckpointController(
+                "star_os_checkpoint_controller", getJournalSystem().getJournal(), IMAGE_SUBDIR);
         checkpointThreadId = checkpointer.getId();
         checkpointer.start();
         LOG.info("star mgr checkpointer thread started. thread id is {}.", checkpointThreadId);
@@ -228,7 +228,7 @@ public class StarMgrServer {
             if (!ckpt.getParentFile().exists()) {
                 LOG.info("create image dir for star mgr, {}.", ckpt.getParentFile().getAbsolutePath());
                 if (!ckpt.getParentFile().mkdir()) {
-                    LOG.warn("fail to create image dir {} for star mgr." + ckpt.getAbsolutePath());
+                    LOG.warn("fail to create image dir {} for star mgr.", ckpt.getAbsolutePath());
                     throw new IOException();
                 }
             }

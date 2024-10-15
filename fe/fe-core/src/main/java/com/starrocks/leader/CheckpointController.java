@@ -34,6 +34,7 @@
 
 package com.starrocks.leader;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.starrocks.common.Config;
 import com.starrocks.common.FeConstants;
@@ -48,7 +49,11 @@ import com.starrocks.persist.Storage;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.staros.StarMgrServer;
 import com.starrocks.system.Frontend;
+import io.trino.hive.$internal.com.google.common.base.Strings;
 import org.apache.commons.io.output.NullOutputStream;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -64,15 +69,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Checkpoint daemon is running on master node. handle the checkpoint work for starrocks.
+ * CheckpointController daemon is running on master node. handle the checkpoint work for starrocks.
  */
-public class Checkpoint extends FrontendDaemon {
-    public static final Logger LOG = LogManager.getLogger(Checkpoint.class);
+public class CheckpointController extends FrontendDaemon {
+    public static final Logger LOG = LogManager.getLogger(CheckpointController.class);
     private static final int PUT_TIMEOUT_SECOND = 3600;
     private static final int CONNECT_TIMEOUT_SECOND = 1;
     private static final int READ_TIMEOUT_SECOND = 1;
 
-    private GlobalStateMgr globalStateMgr;
     private final String imageDir;
     private final Journal journal;
     // subDir comes after base imageDir, to distinguish different module's image dir
@@ -81,16 +85,12 @@ public class Checkpoint extends FrontendDaemon {
 
     private final Set<String> nodesToPushImage;
 
-    public Checkpoint(Journal journal) {
-        this("leaderCheckpointer", journal, "" /* subDir */, true /* belongToGlobalStateMgr */);
-    }
-
-    public Checkpoint(String name, Journal journal, String subDir, boolean belongToGlobalStateMgr) {
+    public CheckpointController(String name, Journal journal, String subDir) {
         super(name, FeConstants.checkpoint_interval_second * 1000L);
         this.imageDir = GlobalStateMgr.getServingState().getImageDir() + subDir;
         this.journal = journal;
         this.subDir = subDir;
-        this.belongToGlobalStateMgr = belongToGlobalStateMgr;
+        this.belongToGlobalStateMgr = Strings.isNullOrEmpty(subDir);
         nodesToPushImage = new HashSet<>();
     }
 
@@ -136,7 +136,7 @@ public class Checkpoint extends FrontendDaemon {
         //             2. needToPushCnt > 0 means there are other nodes in the cluster,
         //                we must make sure all the other nodes have got the new image and then delete old journals.
         if ((newImageCreated && needToPushCnt == 0)
-                || (needToPushCnt > 0 && nodesToPushImage.size() == 0)) {
+                || (needToPushCnt > 0 && nodesToPushImage.isEmpty())) {
             deleteOldJournals(newImageVersion);
         }
 
@@ -190,6 +190,8 @@ public class Checkpoint extends FrontendDaemon {
                         + "&for_global_state=" + belongToGlobalStateMgr
                         + "&image_format_version=" + formatVersion.toString();
                 try {
+                    CloseableHttpClient httpclient = HttpClients.createDefault();
+                    HttpGet httpget = new HttpGet(url);
                     MetaHelper.getRemoteFile(url, PUT_TIMEOUT_SECOND * 1000, new NullOutputStream());
                     LOG.info("push image successfully, url = {}", url);
                     if (MetricRepo.hasInit) {
@@ -234,11 +236,12 @@ public class Checkpoint extends FrontendDaemon {
     }
 
     private boolean replayAndGenerateGlobalStateMgrImage(long logVersion) {
-        assert belongToGlobalStateMgr;
+        Preconditions.checkState(belongToGlobalStateMgr,
+                "generate global state mgr checkpoint, but belongToGlobalStateMgr is false");
         long replayedJournalId = -1;
         // generate new image file
         LOG.info("begin to generate new image: image.{}", logVersion);
-        globalStateMgr = GlobalStateMgr.getCurrentState();
+        GlobalStateMgr globalStateMgr = GlobalStateMgr.getCurrentState();
         globalStateMgr.setEditLog(new EditLog(null));
         globalStateMgr.setJournal(journal);
         try {
@@ -258,14 +261,13 @@ public class Checkpoint extends FrontendDaemon {
             LOG.error("Exception when generate new image file", e);
             return false;
         } finally {
-            // destroy checkpoint globalStateMgr, reclaim memory
-            globalStateMgr = null;
             GlobalStateMgr.destroyCheckpoint();
         }
     }
 
     private boolean replayAndGenerateStarMgrImage(long logVersion) {
-        assert !belongToGlobalStateMgr;
+        Preconditions.checkState(!belongToGlobalStateMgr,
+                "generate star mgr checkpoint, but belongToGlobalStateMgr is true");
         StarMgrServer starMgrServer = StarMgrServer.getCurrentState();
         try {
             return starMgrServer.replayAndGenerateImage(imageDir, logVersion);

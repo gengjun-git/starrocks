@@ -134,7 +134,7 @@ import com.starrocks.lake.StarOSAgent;
 import com.starrocks.lake.compaction.CompactionControlScheduler;
 import com.starrocks.lake.compaction.CompactionMgr;
 import com.starrocks.lake.vacuum.AutovacuumDaemon;
-import com.starrocks.leader.Checkpoint;
+import com.starrocks.leader.CheckpointController;
 import com.starrocks.leader.TaskRunStateSynchronizer;
 import com.starrocks.listener.GlobalLoadJobListenerBus;
 import com.starrocks.load.DeleteMgr;
@@ -353,7 +353,7 @@ public class GlobalStateMgr {
 
     private static GlobalStateMgr CHECKPOINT = null;
     private static long checkpointThreadId = -1;
-    private Checkpoint checkpointer;
+    private CheckpointController checkpointer;
 
     private HAProtocol haProtocol = null;
 
@@ -1338,7 +1338,7 @@ public class GlobalStateMgr {
         }
 
         // start checkpoint thread
-        checkpointer = new Checkpoint(journal);
+        checkpointer = new CheckpointController("global_state_checkpoint_controller", journal, "");
         checkpointer.setMetaContext(metaContext);
         // set "checkpointThreadId" before the checkpoint thread start, because the thread
         // need to check the "checkpointThreadId" when running.
