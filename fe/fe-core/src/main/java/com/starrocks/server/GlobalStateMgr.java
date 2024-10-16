@@ -119,6 +119,7 @@ import com.starrocks.ha.HAProtocol;
 import com.starrocks.ha.LeaderInfo;
 import com.starrocks.ha.StateChangeExecution;
 import com.starrocks.healthchecker.SafeModeChecker;
+import com.starrocks.journal.CheckpointWorker;
 import com.starrocks.journal.Journal;
 import com.starrocks.journal.JournalCursor;
 import com.starrocks.journal.JournalEntity;
@@ -353,7 +354,8 @@ public class GlobalStateMgr {
 
     private static GlobalStateMgr CHECKPOINT = null;
     private static long checkpointThreadId = -1;
-    private CheckpointController checkpointer;
+    private CheckpointController checkpointController;
+    private CheckpointWorker checkpointWorker;
 
     private HAProtocol haProtocol = null;
 
@@ -1276,7 +1278,7 @@ public class GlobalStateMgr {
 
             // MUST set leader ip before starting checkpoint thread.
             // because checkpoint thread need this info to select non-leader FE to push image
-            nodeMgr.setLeaderInfo();
+            nodeMgr.setLeaderInfo(epoch);
 
             // start all daemon threads that only running on MASTER FE
             startLeaderOnlyDaemonThreads();
@@ -1338,13 +1340,8 @@ public class GlobalStateMgr {
         }
 
         // start checkpoint thread
-        checkpointer = new CheckpointController("global_state_checkpoint_controller", journal, "");
-        checkpointer.setMetaContext(metaContext);
-        // set "checkpointThreadId" before the checkpoint thread start, because the thread
-        // need to check the "checkpointThreadId" when running.
-        checkpointThreadId = checkpointer.getId();
-
-        checkpointer.start();
+        checkpointController = new CheckpointController("global_state_checkpoint_controller", journal, "");
+        checkpointController.start();
         LOG.info("checkpointer thread started. thread id is {}", checkpointThreadId);
 
         keyRotationDaemon.start();
@@ -1427,6 +1424,11 @@ public class GlobalStateMgr {
 
     // start threads that should run on all FE
     private void startAllNodeTypeDaemonThreads() {
+        checkpointWorker = new CheckpointWorker("global_state_checkpoint_controller", journal, "");
+        // set "checkpointThreadId" before the checkpoint thread start, because the thread
+        // need to check the "checkpointThreadId" when running.
+        checkpointThreadId = checkpointWorker.getId();
+
         portConnectivityChecker.start();
         tabletStatMgr.start();
         // load and export job label cleaner thread
@@ -2194,7 +2196,16 @@ public class GlobalStateMgr {
         return this.metastoreEventsProcessor;
     }
 
+    public CheckpointWorker getCheckpointWorker() {
+        return checkpointWorker;
+    }
+
+    public CheckpointController getCheckpointController() {
+        return checkpointController;
+    }
+
     public void setLeader(LeaderInfo info) {
+        epoch = info.getEpoch();
         nodeMgr.setLeader(info);
     }
 

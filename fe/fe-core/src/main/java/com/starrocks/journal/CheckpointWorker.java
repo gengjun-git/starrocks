@@ -25,24 +25,41 @@ import io.trino.hive.$internal.com.google.common.base.Strings;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class Checkpoint extends FrontendDaemon {
-    public static final Logger LOG = LogManager.getLogger(Checkpoint.class);
+public class CheckpointWorker extends FrontendDaemon {
+    public static final Logger LOG = LogManager.getLogger(CheckpointWorker.class);
 
     private final String imageDir;
     private final Journal journal;
-    // subDir comes after base imageDir, to distinguish different module's image dir
-    private final String subDir;
     private final boolean belongToGlobalStateMgr;
 
-    public Checkpoint(String name, Journal journal, String subDir) {
+    private long journalId;
+    private long epoch;
+
+    public CheckpointWorker(String name, Journal journal, String subDir) {
         super(name, FeConstants.checkpoint_interval_second * 1000L);
         this.imageDir = GlobalStateMgr.getServingState().getImageDir() + subDir;
         this.journal = journal;
-        this.subDir = subDir;
         this.belongToGlobalStateMgr = Strings.isNullOrEmpty(subDir);
     }
 
+    public void setNextCheckpoint(long epoch, long journalId) throws Exception {
+        if (epoch != GlobalStateMgr.getCurrentState().getEpoch()) {
+            throw new Exception(String.format("epoch: %d is not equal to current epoch: %d",
+                    epoch, GlobalStateMgr.getCurrentState().getEpoch()));
+        }
+        if (journalId > GlobalStateMgr.getCurrentState().getMaxJournalId()) {
+            throw new Exception(String.format("can not find journal id: %d , current max journal id is: %d",
+                    journalId, GlobalStateMgr.getCurrentState().getMaxJournalId()));
+        }
 
+        this.epoch = epoch;
+        this.journalId = journalId;
+    }
+
+    @Override
+    protected void runAfterCatalogReady() {
+
+    }
 
     private boolean createImage(long logVersion) {
         if (belongToGlobalStateMgr) {

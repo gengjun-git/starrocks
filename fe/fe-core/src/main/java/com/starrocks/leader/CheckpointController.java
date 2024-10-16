@@ -39,6 +39,7 @@ import com.starrocks.common.Config;
 import com.starrocks.common.FeConstants;
 import com.starrocks.common.util.FrontendDaemon;
 import com.starrocks.common.util.NetUtils;
+import com.starrocks.ha.FrontendNodeType;
 import com.starrocks.journal.Journal;
 import com.starrocks.metric.MetricRepo;
 import com.starrocks.persist.ImageFormatVersion;
@@ -78,6 +79,9 @@ public class CheckpointController extends FrontendDaemon {
 
     private final Set<String> nodesToPushImage;
 
+    private String workerNodeName;
+    private long checkpointLogVersion;
+
     public CheckpointController(String name, Journal journal, String subDir) {
         super(name, FeConstants.checkpoint_interval_second * 1000L);
         this.imageDir = GlobalStateMgr.getServingState().getImageDir() + subDir;
@@ -106,7 +110,8 @@ public class CheckpointController extends FrontendDaemon {
         // Step 1: create image
         boolean newImageCreated = false;
         if (imageVersion < logVersion) {
-            newImageCreated = createImage(logVersion);
+            this.checkpointLogVersion = logVersion;
+            newImageCreated = createImage();
         }
         if (newImageCreated) {
             // Push the image file to all other nodes
@@ -219,7 +224,51 @@ public class CheckpointController extends FrontendDaemon {
         return result;
     }
 
-    private boolean createImage(long logVersion) {
+    private String selectWorker() {
+        List<Frontend> frontends = GlobalStateMgr.getServingState().getNodeMgr().getFrontends(FrontendNodeType.FOLLOWER);
+        frontends.sort((fe1, fe2) -> {
+            if (Math.abs(fe1.getHeapUsedPercent() - fe2.getHeapUsedPercent()) < 1e-6) {
+                return 0;
+            } else if (fe1.getHeapUsedPercent() > fe2.getHeapUsedPercent()) {
+                return 1;
+            } else {
+                return -1;
+            }
+        });
+
+        for (Frontend frontend : frontends) {
+            if (doCheckpoint(frontend)) {
+                return frontend.getNodeName();
+            }
+        }
+
+        return null;
+    }
+
+    private boolean doCheckpoint(Frontend frontend) {
+        String selfName = GlobalStateMgr.getServingState().getNodeMgr().getNodeName();
+        try {
+            if (selfName.equals(frontend.getNodeName())) {
+                GlobalStateMgr.getCurrentState().getCheckpointWorker().setNextCheckpoint(
+                        GlobalStateMgr.getCurrentState().getEpoch(), checkpointLogVersion);
+                return true;
+            } else {
+                // call doCheckpoint rpc
+            }
+        } catch (Exception e) {
+            LOG.warn("doCheckpoint failed", e);
+            return false;
+        }
+
+        return false;
+    }
+
+    private boolean createImage() {
+        this.workerNodeName = selectWorker();
+        if (this.workerNodeName == null) {
+            return false;
+        }
+
         return true;
     }
 

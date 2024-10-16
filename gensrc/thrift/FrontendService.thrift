@@ -1847,6 +1847,15 @@ struct TGetKeysResponse {
     1: optional list<binary> key_metas;
 }
 
+struct TDoCheckpointRequest {
+    1: optional i64 epoch;
+    2: optional i64 journalId;
+}
+
+struct TDoCheckpointResponse {
+    1: optional Status.TStatus status;
+}
+
 service FrontendService {
     TGetDbsResult getDbNames(1:TGetDbsParams params)
     TGetTablesResult getTableNames(1:TGetTablesParams params)
@@ -1960,5 +1969,7 @@ service FrontendService {
     TGetTemporaryTablesInfoResponse getTemporaryTablesInfo(1: TGetTemporaryTablesInfoRequest request)
 
     TReportFragmentFinishResponse reportFragmentFinish(TReportFragmentFinishParams request)
+
+    TDoCheckpointResponse doCheckpoint(1: TDoCheckpointRequest request)
 }
 

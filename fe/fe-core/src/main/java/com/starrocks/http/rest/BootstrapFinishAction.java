@@ -50,9 +50,6 @@ import io.netty.handler.codec.http.HttpMethod;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
-
 /*
  * fe_host:fe_http_port/api/bootstrap
  * return:
