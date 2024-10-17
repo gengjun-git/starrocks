@@ -37,20 +37,31 @@ package com.starrocks.leader;
 import com.google.common.collect.Lists;
 import com.starrocks.common.Config;
 import com.starrocks.common.FeConstants;
+import com.starrocks.common.Pair;
 import com.starrocks.common.util.FrontendDaemon;
 import com.starrocks.common.util.NetUtils;
 import com.starrocks.ha.FrontendNodeType;
+import com.starrocks.http.meta.MetaService;
 import com.starrocks.journal.Journal;
 import com.starrocks.metric.MetricRepo;
 import com.starrocks.persist.ImageFormatVersion;
 import com.starrocks.persist.MetaCleaner;
 import com.starrocks.persist.Storage;
+import com.starrocks.rpc.ThriftConnectionPool;
+import com.starrocks.rpc.ThriftRPCRequestExecutor;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.system.Frontend;
+import com.starrocks.thrift.TDoCheckpointRequest;
+import com.starrocks.thrift.TDoCheckpointResponse;
+import com.starrocks.thrift.TNetworkAddress;
+import com.starrocks.thrift.TStatus;
+import com.starrocks.thrift.TStatusCode;
 import io.trino.hive.$internal.com.google.common.base.Strings;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -61,6 +72,9 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * CheckpointController daemon is running on master node. handle the checkpoint work for starrocks.
@@ -79,8 +93,9 @@ public class CheckpointController extends FrontendDaemon {
 
     private final Set<String> nodesToPushImage;
 
-    private String workerNodeName;
-    private long checkpointLogVersion;
+    private volatile String workerNodeName;
+    private volatile long journalId;
+    private volatile BlockingQueue<Pair<Boolean, String>> result;
 
     public CheckpointController(String name, Journal journal, String subDir) {
         super(name, FeConstants.checkpoint_interval_second * 1000L);
@@ -93,15 +108,15 @@ public class CheckpointController extends FrontendDaemon {
 
     @Override
     protected void runAfterCatalogReady() {
-        long imageVersion = 0;
-        long logVersion = 0;
+        long imageJournalId = 0;
+        long maxJournalId = 0;
         try {
             Storage storage = new Storage(imageDir);
             // get max image version
-            imageVersion = storage.getImageJournalId();
+            imageJournalId = storage.getImageJournalId();
             // get max finalized journal id
-            logVersion = journal.getFinalizedJournalId();
-            LOG.info("checkpoint imageVersion {}, logVersion {}", imageVersion, logVersion);
+            maxJournalId = journal.getFinalizedJournalId();
+            LOG.info("checkpoint imageVersion {}, logVersion {}", imageJournalId, maxJournalId);
         } catch (IOException e) {
             LOG.error("Failed to get storage info", e);
             return;
@@ -109,8 +124,8 @@ public class CheckpointController extends FrontendDaemon {
 
         // Step 1: create image
         boolean newImageCreated = false;
-        if (imageVersion < logVersion) {
-            this.checkpointLogVersion = logVersion;
+        if (imageJournalId < maxJournalId) {
+            this.journalId = maxJournalId;
             newImageCreated = createImage();
         }
         if (newImageCreated) {
@@ -123,7 +138,7 @@ public class CheckpointController extends FrontendDaemon {
 
         // Step2: push image
         int needToPushCnt = nodesToPushImage.size();
-        long newImageVersion = newImageCreated ? logVersion : imageVersion;
+        long newImageVersion = newImageCreated ? maxJournalId : imageJournalId;
         if (needToPushCnt > 0) {
             pushImage(newImageVersion);
         }
@@ -152,6 +167,135 @@ public class CheckpointController extends FrontendDaemon {
                     LOG.error("Leader delete old image file from dir {} fail.", dirsToClean, e);
                 }
             }
+        }
+    }
+
+    private boolean createImage() {
+        result = new ArrayBlockingQueue<>(1);
+        workerNodeName = selectWorker();
+        if (workerNodeName == null) {
+            LOG.warn("Failed to select worker to do checkpoint, journalId: {}", journalId);
+            return false;
+        }
+
+        // check the worker node is available
+        Frontend frontend = GlobalStateMgr.getCurrentState().getNodeMgr().getFeByName(workerNodeName);
+        if (frontend == null || !frontend.isAlive()) {
+            LOG.warn("worker node: {} is not available", workerNodeName);
+            return false;
+        }
+
+        try {
+            Pair<Boolean, String> ret = result.poll(Config.checkpoint_timeout_s, TimeUnit.SECONDS);
+            if (ret == null) {
+                LOG.warn("do checkpoint timeout on node: {}", workerNodeName);
+                return false;
+            }
+            if (!ret.first) {
+                LOG.warn("do checkpoint failed on node: {}, reason: {}", workerNodeName, ret.second);
+                return false;
+            }
+
+            // download Image
+            downloadImage();
+
+        } catch (Exception e) {
+            LOG.warn("create image failed", e);
+            return false;
+        } finally {
+            workerNodeName = null;
+        }
+
+        return true;
+    }
+
+    private void downloadImage() throws IOException {
+        try {
+            downloadImage(ImageFormatVersion.v1, imageDir);
+        } catch (IOException e) {
+            if (belongToGlobalStateMgr && e instanceof FileNotFoundException) {
+                LOG.warn("download image of v1 version failed, ignore", e);
+            } else {
+                throw e;
+            }
+        }
+
+        if (belongToGlobalStateMgr) {
+            downloadImage(ImageFormatVersion.v2, imageDir + "/v2");
+        }
+
+    }
+
+    private void downloadImage(ImageFormatVersion imageFormatVersion, String imageDir) throws IOException {
+        Frontend frontend = GlobalStateMgr.getCurrentState().getNodeMgr().getFeByName(workerNodeName);
+        if (frontend == null || !frontend.isAlive()) {
+            String errMessage = String.format("worker node: %s not available", workerNodeName);
+            LOG.warn(errMessage);
+            throw new IOException(errMessage);
+        }
+        File dir = new File(imageDir);
+        String url = "http://" + NetUtils.getHostPortInAccessibleFormat(frontend.getHost(), frontend.getRpcPort()) +
+                "/image?version=" + journalId
+                + "&subdir=" + subDir
+                + "&image_format_version=" + imageFormatVersion;
+        MetaHelper.downloadImageFile(url, MetaService.DOWNLOAD_TIMEOUT_SECOND * 1000, String.valueOf(journalId), dir);
+    }
+
+    private String selectWorker() {
+        List<Frontend> frontends = GlobalStateMgr.getServingState().getNodeMgr().getFrontends(FrontendNodeType.FOLLOWER);
+        frontends.sort((fe1, fe2) -> {
+            if (Math.abs(fe1.getHeapUsedPercent() - fe2.getHeapUsedPercent()) < 1e-6) {
+                return 0;
+            } else if (fe1.getHeapUsedPercent() > fe2.getHeapUsedPercent()) {
+                return 1;
+            } else {
+                return -1;
+            }
+        });
+
+        for (Frontend frontend : frontends) {
+            if (doCheckpoint(frontend)) {
+                return frontend.getNodeName();
+            }
+        }
+
+        return null;
+    }
+
+    private boolean doCheckpoint(Frontend frontend) {
+        String selfName = GlobalStateMgr.getServingState().getNodeMgr().getNodeName();
+        long epoch = GlobalStateMgr.getCurrentState().getEpoch();
+        try {
+            if (selfName.equals(frontend.getNodeName())) {
+                GlobalStateMgr.getCurrentState().getCheckpointWorker().setNextCheckpoint(
+                        epoch, journalId);
+                return true;
+            } else {
+                // call doCheckpoint rpc
+                TDoCheckpointRequest request = new TDoCheckpointRequest();
+                request.setEpoch(epoch);
+                request.setJournal_id(journalId);
+                TDoCheckpointResponse response = ThriftRPCRequestExecutor.call(
+                        ThriftConnectionPool.frontendPool,
+                        new TNetworkAddress(frontend.getHost(), frontend.getRpcPort()),
+                        Config.thrift_rpc_timeout_ms,
+                        client -> client.doCheckpoint(request));
+                TStatus status = response.getStatus();
+                if (status.getStatus_code() != TStatusCode.OK) {
+                    String errMessage = "";
+                    if (status.getError_msgs() != null && !status.getError_msgs().isEmpty()) {
+                        errMessage = String.join(",", status.getError_msgs());
+                    }
+                    LOG.warn("call doCheckpoint failed from node: {}, error message: {}",
+                            frontend.getNodeName(), errMessage);
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            LOG.warn("doCheckpoint failed for node: {}", frontend.getNodeName(), e);
+            return false;
         }
     }
 
@@ -224,54 +368,6 @@ public class CheckpointController extends FrontendDaemon {
         return result;
     }
 
-    private String selectWorker() {
-        List<Frontend> frontends = GlobalStateMgr.getServingState().getNodeMgr().getFrontends(FrontendNodeType.FOLLOWER);
-        frontends.sort((fe1, fe2) -> {
-            if (Math.abs(fe1.getHeapUsedPercent() - fe2.getHeapUsedPercent()) < 1e-6) {
-                return 0;
-            } else if (fe1.getHeapUsedPercent() > fe2.getHeapUsedPercent()) {
-                return 1;
-            } else {
-                return -1;
-            }
-        });
-
-        for (Frontend frontend : frontends) {
-            if (doCheckpoint(frontend)) {
-                return frontend.getNodeName();
-            }
-        }
-
-        return null;
-    }
-
-    private boolean doCheckpoint(Frontend frontend) {
-        String selfName = GlobalStateMgr.getServingState().getNodeMgr().getNodeName();
-        try {
-            if (selfName.equals(frontend.getNodeName())) {
-                GlobalStateMgr.getCurrentState().getCheckpointWorker().setNextCheckpoint(
-                        GlobalStateMgr.getCurrentState().getEpoch(), checkpointLogVersion);
-                return true;
-            } else {
-                // call doCheckpoint rpc
-            }
-        } catch (Exception e) {
-            LOG.warn("doCheckpoint failed", e);
-            return false;
-        }
-
-        return false;
-    }
-
-    private boolean createImage() {
-        this.workerNodeName = selectWorker();
-        if (this.workerNodeName == null) {
-            return false;
-        }
-
-        return true;
-    }
-
     private long getMinReplayedJournalId() {
         long minReplayedJournalId = Long.MAX_VALUE;
         for (Frontend fe : GlobalStateMgr.getServingState().getNodeMgr().getOtherFrontends()) {
@@ -308,5 +404,29 @@ public class CheckpointController extends FrontendDaemon {
         }
 
         return minReplayedJournalId;
+    }
+
+    public void finishCheckpoint(long journalId, String nodeName) throws Exception {
+        if (nodeName.equals(workerNodeName)) {
+            throw new Exception(String.format("worker node name node match, current worker is: %s, param worker is: %s",
+                    workerNodeName, nodeName));
+        }
+        if (journalId != this.journalId) {
+            throw new Exception(String.format("journalId not match, current journalId is: %d, param journalId is: %d",
+                    this.journalId, journalId));
+        }
+
+        if (result.offer(Pair.create(true, ""))) {
+            LOG.info("finish checkpoint successfully, journalId: {}, nodeName: {}", journalId, nodeName);
+        } else {
+            LOG.warn("There are already other values in the result queue");
+        }
+    }
+
+    public void cancelCheckpoint(String nodeName, String reason) {
+        if (nodeName.equals(workerNodeName)) {
+            result.offer(Pair.create(false, reason));
+            LOG.warn("cancel checkpoint on node: {}, because: {}", nodeName, reason);
+        }
     }
 }

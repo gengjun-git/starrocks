@@ -178,6 +178,8 @@ import com.starrocks.thrift.TCreatePartitionResult;
 import com.starrocks.thrift.TDBPrivDesc;
 import com.starrocks.thrift.TDescribeTableParams;
 import com.starrocks.thrift.TDescribeTableResult;
+import com.starrocks.thrift.TDoCheckpointRequest;
+import com.starrocks.thrift.TDoCheckpointResponse;
 import com.starrocks.thrift.TExecPlanFragmentParams;
 import com.starrocks.thrift.TExprNode;
 import com.starrocks.thrift.TFeLocksReq;
@@ -186,6 +188,8 @@ import com.starrocks.thrift.TFeMemoryReq;
 import com.starrocks.thrift.TFeMemoryRes;
 import com.starrocks.thrift.TFeResult;
 import com.starrocks.thrift.TFetchResourceResult;
+import com.starrocks.thrift.TFinishCheckpointRequest;
+import com.starrocks.thrift.TFinishCheckpointResponse;
 import com.starrocks.thrift.TFinishSlotRequirementRequest;
 import com.starrocks.thrift.TFinishSlotRequirementResponse;
 import com.starrocks.thrift.TFinishTaskRequest;
@@ -2881,5 +2885,34 @@ public class FrontendServiceImpl implements FrontendService.Iface {
     @Override
     public TReportFragmentFinishResponse reportFragmentFinish(TReportFragmentFinishParams request) throws TException {
         return QeProcessorImpl.INSTANCE.reportFragmentFinish(request);
+    }
+
+    @Override
+    public TDoCheckpointResponse doCheckpoint(TDoCheckpointRequest request) throws TException {
+        return null;
+    }
+
+    @Override
+    public TFinishCheckpointResponse finishCheckpoint(TFinishCheckpointRequest request) throws TException {
+        TFinishCheckpointResponse response = new TFinishCheckpointResponse();
+        if (!GlobalStateMgr.getCurrentState().isLeader()) {
+            TStatus status = new TStatus(TStatusCode.CANCELLED);
+            status.addToError_msgs("current node is not leader");
+            response.setStatus(status);
+            return response;
+        }
+
+        try {
+            GlobalStateMgr.getCurrentState().getCheckpointController().finishCheckpoint(
+                    request.getJournal_id(), request.getNode_name());
+            response.setStatus(new TStatus(OK));
+            return response;
+        } catch (Exception e) {
+            LOG.warn("finishCheckpoint failed", e);
+            TStatus status = new TStatus(TStatusCode.CANCELLED);
+            status.addToError_msgs(e.getMessage());
+            response.setStatus(status);
+            return response;
+        }
     }
 }

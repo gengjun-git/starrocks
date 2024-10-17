@@ -1849,10 +1849,19 @@ struct TGetKeysResponse {
 
 struct TDoCheckpointRequest {
     1: optional i64 epoch;
-    2: optional i64 journalId;
+    2: optional i64 journal_id;
 }
 
 struct TDoCheckpointResponse {
+    1: optional Status.TStatus status;
+}
+
+struct TFinishCheckpointRequest {
+    1: optional i64 journal_id;
+    2: optional string node_name;
+}
+
+struct TFinishCheckpointResponse {
     1: optional Status.TStatus status;
 }
 
@@ -1971,5 +1980,7 @@ service FrontendService {
     TReportFragmentFinishResponse reportFragmentFinish(TReportFragmentFinishParams request)
 
     TDoCheckpointResponse doCheckpoint(1: TDoCheckpointRequest request)
+
+    TFinishCheckpointResponse finishCheckpoint(1: TFinishCheckpointRequest request)
 }
 

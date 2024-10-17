@@ -207,6 +207,10 @@ public class Frontend extends JsonWriter {
         if (!GlobalStateMgr.isCheckpointThread()) {
             GlobalStateMgr.getCurrentState().getSlotManager().notifyFrontendDeadAsync(nodeName);
         }
+
+        if (!isReplay) {
+            GlobalStateMgr.getCurrentState().getCheckpointController().cancelCheckpoint(nodeName, "FE is dead");
+        }
     }
 
     /**
@@ -218,6 +222,10 @@ public class Frontend extends JsonWriter {
     private void restartHappened(boolean isReplay) {
         if (!GlobalStateMgr.isCheckpointThread()) {
             GlobalStateMgr.getCurrentState().getSlotManager().notifyFrontendRestartAsync(nodeName, startTime);
+        }
+
+        if (!isReplay) {
+            GlobalStateMgr.getCurrentState().getCheckpointController().cancelCheckpoint(nodeName, "FE has restarted");
         }
     }
 

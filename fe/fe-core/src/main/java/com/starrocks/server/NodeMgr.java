@@ -856,9 +856,15 @@ public class NodeMgr {
             unlock();
 
             if (fe != null) {
-                GlobalStateMgr.getCurrentState().getSlotManager().notifyFrontendDeadAsync(fe.getNodeName());
+                dropFrontendHook(fe);
             }
         }
+    }
+
+    private void dropFrontendHook(Frontend fe) {
+        GlobalStateMgr.getCurrentState().getSlotManager().notifyFrontendDeadAsync(fe.getNodeName());
+
+        GlobalStateMgr.getCurrentState().getCheckpointController().cancelCheckpoint(fe.getNodeName(), "FE is dropped");
     }
 
     public void replayAddFrontend(Frontend fe) {
