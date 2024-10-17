@@ -207,16 +207,15 @@ public class StarMgrServer {
         }
     }
 
-    public boolean replayAndGenerateImage(String imageDir, long checkPointVersion) throws IOException {
+    public void replayAndGenerateImage(String imageDir, long checkPointVersion) throws IOException {
         // 1. load base image
         loadImage(imageDir);
 
         // 2. replay incremental journal
         getJournalSystem().replayTo(checkPointVersion);
         if (getJournalSystem().getReplayId() != checkPointVersion) {
-            LOG.error("star mgr checkpoint version should be {}, actual replayed journal id is {}",
-                    checkPointVersion, getJournalSystem().getReplayId());
-            return false;
+            throw new IOException(String.format("star mgr checkpoint version should be %d, actual replayed journal id is %d",
+                    checkPointVersion, getJournalSystem().getReplayId()));
         }
 
         // 3. write new image
@@ -228,8 +227,10 @@ public class StarMgrServer {
             if (!ckpt.getParentFile().exists()) {
                 LOG.info("create image dir for star mgr, {}.", ckpt.getParentFile().getAbsolutePath());
                 if (!ckpt.getParentFile().mkdir()) {
-                    LOG.warn("fail to create image dir {} for star mgr.", ckpt.getAbsolutePath());
-                    throw new IOException();
+                    String errorMessage = String.format("fail to create image dir %s for star mgr.",
+                            ckpt.getAbsolutePath());
+                    LOG.warn(errorMessage);
+                    throw new IOException(errorMessage);
                 }
             }
             if (!ckpt.createNewFile()) {
@@ -242,13 +243,12 @@ public class StarMgrServer {
         // Move image.ckpt to image.dataVersion
         LOG.info("move star mgr " + ckpt.getAbsolutePath() + " to " + imageFile.getAbsolutePath());
         if (!ckpt.renameTo(imageFile)) {
-            if (ckpt.delete()) {
+            if (!ckpt.delete()) {
                 LOG.warn("rename failed, fail to delete middle star mgr image " + ckpt.getAbsolutePath() + ".");
             }
-            throw new IOException();
+            throw new IOException(String.format("failed to remove file %s to %s",
+                    ckpt.getAbsolutePath(), imageFile.getAbsolutePath()));
         }
-
-        return true;
     }
 
     public void visitMetrics(MetricVisitor visitor) {
