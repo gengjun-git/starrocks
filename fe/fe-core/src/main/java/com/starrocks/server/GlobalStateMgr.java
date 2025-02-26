@@ -2315,7 +2315,8 @@ public class GlobalStateMgr {
     }
 
     public boolean isLeaderTransferred() {
-        return journalWriter.isLeaderTransferred();
+        return journalWriter != null
+                && journalWriter.isLeaderTransferred();
     }
 
     public void setSynchronizedTime(long time) {
