@@ -189,7 +189,7 @@ public class StarRocksFE {
 
             RestoreClusterSnapshotMgr.finishRestoring();
 
-            handleGracefulExit(qeService);
+            handleGracefulExit();
 
             LOG.info("FE started successfully");
 
@@ -205,17 +205,14 @@ public class StarRocksFE {
         System.exit(0);
     }
 
-    private static void handleGracefulExit(QeService qeService) {
+    private static void handleGracefulExit() {
         // Since the normal exit is using SIGTERM(15),
         // so we have to choose another signal for the graceful exit, use SIGUSR1(10) here.
         Signal.handle(new Signal("USR1"), sig -> {
             if (canGracefulExit()) {
+                long startTime = System.nanoTime();
                 LOG.info("start to handle graceful exit");
                 GracefulExitFlag.markGracefulExit();
-
-                // stop mysql server, new connection will be rejected
-                qeService.stop();
-                LOG.info("mysql server stopped");
 
                 // transfer leader if current node is leader
                 try {
@@ -231,6 +228,14 @@ public class StarRocksFE {
                 } catch (Exception e) {
                     LOG.warn("handle graceful exit failed", e);
                     System.exit(-1);
+                }
+
+                long usedTimeMs = (System.nanoTime() - startTime) / 1000000L;
+                if (usedTimeMs < Config.min_graceful_exit_time_second * 1000L) {
+                    try {
+                        Thread.sleep(Config.min_graceful_exit_time_second * 1000L - usedTimeMs);
+                    } catch (InterruptedException ignored) {
+                    }
                 }
 
                 LOG.info("handle graceful exit successfully");

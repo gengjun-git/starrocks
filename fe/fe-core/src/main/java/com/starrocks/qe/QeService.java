@@ -58,9 +58,5 @@ public class QeService {
         }
         LOG.info("QE service start.");
     }
-
-    public void stop() {
-        mysqlServer.stop();
-    }
 }
 
