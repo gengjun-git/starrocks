@@ -135,8 +135,7 @@ public class StreamLoadMgr implements MemoryTrackable {
         }
         Table table = checkMeta(db, tableName);
 
-        boolean createTask = true;
-
+        boolean createTask = false;
         writeLock();
         try {
             // double check here
@@ -169,6 +168,7 @@ public class StreamLoadMgr implements MemoryTrackable {
         long dbId = db.getId();
         Table table = checkMeta(db, tableName);
 
+        boolean createTask = false;
         writeLock();
         try {
             task = createLoadTaskWithoutLock(db, table, label, user, clientIp, timeoutMillis, isRoutineLoad,
@@ -178,8 +178,12 @@ public class StreamLoadMgr implements MemoryTrackable {
 
             task.beginTxnFromBackend(requestId, resp);
             addLoadTask(task);
+            createTask = true;
         } finally {
             writeUnlock();
+        }
+        if (createTask) {
+            GlobalStateMgr.getCurrentState().getEditLog().logCreateStreamLoadJob(task);
         }
     }
 

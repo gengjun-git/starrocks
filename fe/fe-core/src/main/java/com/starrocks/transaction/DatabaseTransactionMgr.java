@@ -1477,18 +1477,11 @@ public class DatabaseTransactionMgr {
     }
 
     private void doWriteTxnStateEditLog(TransactionState transactionState) {
-        if (transactionState.getTransactionStatus() != TransactionStatus.PREPARE
-                || transactionState.getSourceType() == TransactionState.LoadJobSourceType.FRONTEND) {
-            // if this is a prepared txn, and load source type is not FRONTEND
-            // no need to persist it. if prepare txn lost, the following commit will just be failed.
-            // user only need to retry this txn.
-            // The FRONTEND type txn is committed and running asynchronously, so we have to persist it.
-            long start = System.currentTimeMillis();
-            editLog.logInsertTransactionState(transactionState);
-            LOG.debug("insert txn state for txn {}, current state: {}, cost: {}ms",
-                    transactionState.getTransactionId(), transactionState.getTransactionStatus(),
-                    System.currentTimeMillis() - start);
-        }
+        long start = System.currentTimeMillis();
+        editLog.logInsertTransactionState(transactionState);
+        LOG.debug("insert txn state for txn {}, current state: {}, cost: {}ms",
+                transactionState.getTransactionId(), transactionState.getTransactionStatus(),
+                System.currentTimeMillis() - start);
     }
 
     // The status of stateBach is VISIBLE or ABORTED

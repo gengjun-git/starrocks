@@ -111,6 +111,7 @@ import com.starrocks.http.rest.TransactionResult;
 import com.starrocks.http.rest.WarehouseInfosBuilder;
 import com.starrocks.journal.CheckpointException;
 import com.starrocks.journal.CheckpointWorker;
+import com.starrocks.journal.LeaderTransferException;
 import com.starrocks.lake.LakeTablet;
 import com.starrocks.lake.Utils;
 import com.starrocks.lake.compaction.CompactionMgr;
@@ -149,7 +150,10 @@ import com.starrocks.qe.ShowExecutor;
 import com.starrocks.qe.ShowMaterializedViewStatus;
 import com.starrocks.qe.scheduler.Coordinator;
 import com.starrocks.qe.scheduler.slot.LogicalSlot;
+import com.starrocks.rpc.ThriftConnectionPool;
+import com.starrocks.rpc.ThriftRPCRequestExecutor;
 import com.starrocks.server.GlobalStateMgr;
+import com.starrocks.server.GracefulExitFlag;
 import com.starrocks.server.LocalMetastore;
 import com.starrocks.server.MetadataMgr;
 import com.starrocks.server.TemporaryTableMgr;
@@ -1254,6 +1258,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             result.setTimeout(0);
         }
 
+        boolean isLeaderTransferred = false;
         try {
             result.setTxnId(loadTxnBeginImpl(request, clientAddr));
         } catch (DuplicatedRequestException e) {
@@ -1269,11 +1274,24 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             LOG.warn("failed to begin: {}", e.getMessage());
             status.setStatus_code(TStatusCode.ANALYSIS_ERROR);
             status.addToError_msgs(e.getMessage());
+            if (e.getCause() != null && e.getCause() instanceof LeaderTransferException) {
+                isLeaderTransferred = true;
+            }
         } catch (Throwable e) {
             LOG.warn("catch unknown result.", e);
             status.setStatus_code(TStatusCode.INTERNAL_ERROR);
             status.addToError_msgs(Strings.nullToEmpty(e.getMessage()));
-            return result;
+            if (e instanceof LeaderTransferException) {
+                isLeaderTransferred = true;
+            }
+        } finally {
+            if (isLeaderTransferred) {
+                LOG.warn("leader transferred during begin txn, forward to new leader");
+                result = ThriftRPCRequestExecutor.call(
+                        ThriftConnectionPool.frontendPool,
+                        GlobalStateMgr.getCurrentState().getNodeMgr().getLeaderRpcEndpoint(),
+                        client -> client.loadTxnBegin(request));
+            }
         }
         return result;
     }
@@ -1348,12 +1366,17 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         LOG.debug("txn commit request: {}", request);
 
         TLoadTxnCommitResult result = new TLoadTxnCommitResult();
+        boolean isLeaderTransferred = false;
         // if current node is not master, reject the request
         if (!GlobalStateMgr.getCurrentState().isLeader()) {
-            TStatus status = new TStatus(TStatusCode.INTERNAL_ERROR);
-            status.setError_msgs(Lists.newArrayList("current fe is not master"));
-            result.setStatus(status);
-            return result;
+            if (!GracefulExitFlag.isGracefulExit()) {
+                TStatus status = new TStatus(TStatusCode.INTERNAL_ERROR);
+                status.setError_msgs(Lists.newArrayList("current fe is not master"));
+                result.setStatus(status);
+                return result;
+            } else {
+                isLeaderTransferred = true;
+            }
         }
 
         TStatus status = new TStatus(TStatusCode.OK);
@@ -1374,11 +1397,25 @@ public class FrontendServiceImpl implements FrontendService.Iface {
             LOG.warn("failed to commit txn_id: {}: {}", request.getTxnId(), e.getMessage());
             status.setStatus_code(TStatusCode.ANALYSIS_ERROR);
             status.addToError_msgs(e.getMessage());
+            if (e.getCause() != null && (e.getCause() instanceof LeaderTransferException)) {
+                isLeaderTransferred = true;
+            }
         } catch (Throwable e) {
             LOG.warn("catch unknown result.", e);
             status.setStatus_code(TStatusCode.INTERNAL_ERROR);
             status.addToError_msgs(Strings.nullToEmpty(e.getMessage()));
-            return result;
+            if (e instanceof LeaderTransferException) {
+                isLeaderTransferred = true;
+            }
+        } finally {
+            if (isLeaderTransferred) {
+                LOG.warn("leader transferred during commit txn, forward to new leader");
+                result = ThriftRPCRequestExecutor.call(
+                        ThriftConnectionPool.frontendPool,
+                        GlobalStateMgr.getCurrentState().getNodeMgr().getLeaderRpcEndpoint(),
+                        (int) request.getThrift_rpc_timeout_ms(),
+                        client -> client.loadTxnCommit(request));
+            }
         }
         return result;
     }

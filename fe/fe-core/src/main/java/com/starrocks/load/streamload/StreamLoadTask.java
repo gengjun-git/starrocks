@@ -14,7 +14,6 @@
 
 package com.starrocks.load.streamload;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
@@ -40,6 +39,7 @@ import com.starrocks.common.util.concurrent.lock.LockTimeoutException;
 import com.starrocks.common.util.concurrent.lock.LockType;
 import com.starrocks.common.util.concurrent.lock.Locker;
 import com.starrocks.http.rest.TransactionResult;
+import com.starrocks.journal.LeaderTransferException;
 import com.starrocks.load.LoadConstants;
 import com.starrocks.load.loadv2.LoadJob;
 import com.starrocks.load.loadv2.ManualLoadTxnCommitAttachment;
@@ -358,6 +358,9 @@ public class StreamLoadTask extends AbstractTxnStateChangeCallback
             this.errorMsg = new LogBuilder(LogKey.STREAM_LOAD_TASK, id, ':').add("label", label)
                     .add("error_msg", "cancel stream task for exception: " + e.getMessage()).build_http_log();
             exception = true;
+            if (e instanceof LeaderTransferException) {
+                throw (LeaderTransferException) e;
+            }
         } finally {
             writeUnlock();
         }
@@ -962,7 +965,6 @@ public class StreamLoadTask extends AbstractTxnStateChangeCallback
         } finally {
             readUnlock();
         }
-        Preconditions.checkState(endTimeMs != -1, endTimeMs);
         if (isForce || ((currentMs - endTimeMs) > Config.stream_load_task_keep_max_second * 1000L)) {
             return true;
         }
@@ -1266,17 +1268,18 @@ public class StreamLoadTask extends AbstractTxnStateChangeCallback
         if (txnState.getTxnCommitAttachment() == null) {
             return;
         }
-        StreamLoadTxnCommitAttachment attachment = (StreamLoadTxnCommitAttachment) txnState.getTxnCommitAttachment();
-        this.trackingUrl = attachment.getTrackingURL();
-        this.beforeLoadTimeMs = attachment.getBeforeLoadTimeMs();
-        this.startLoadingTimeMs = attachment.getStartLoadingTimeMs();
-        this.startPreparingTimeMs = attachment.getStartPreparingTimeMs();
-        this.finishPreparingTimeMs = attachment.getFinishPreparingTimeMs();
-        this.endTimeMs = attachment.getEndTimeMs();
-        this.numRowsNormal = attachment.getNumRowsNormal();
-        this.numRowsAbnormal = attachment.getNumRowsAbnormal();
-        this.numRowsUnselected = attachment.getNumRowsUnselected();
-        this.numLoadBytesTotal = attachment.getNumLoadBytesTotal();
+        if (txnState.getTxnCommitAttachment() instanceof StreamLoadTxnCommitAttachment attachment) {
+            this.trackingUrl = attachment.getTrackingURL();
+            this.beforeLoadTimeMs = attachment.getBeforeLoadTimeMs();
+            this.startLoadingTimeMs = attachment.getStartLoadingTimeMs();
+            this.startPreparingTimeMs = attachment.getStartPreparingTimeMs();
+            this.finishPreparingTimeMs = attachment.getFinishPreparingTimeMs();
+            this.endTimeMs = attachment.getEndTimeMs();
+            this.numRowsNormal = attachment.getNumRowsNormal();
+            this.numRowsAbnormal = attachment.getNumRowsAbnormal();
+            this.numRowsUnselected = attachment.getNumRowsUnselected();
+            this.numLoadBytesTotal = attachment.getNumLoadBytesTotal();
+        }
     }
 
     public OlapTable getTable() throws MetaNotFoundException {
@@ -1500,6 +1503,7 @@ public class StreamLoadTask extends AbstractTxnStateChangeCallback
     @Override
     public void gsonPostProcess() throws IOException {
         loadId = new TUniqueId(loadIdHi, loadIdLo);
+        init();
     }
 
     @Override
