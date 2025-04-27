@@ -17,10 +17,6 @@
 
 package com.starrocks.utframe;
 
-import com.google.common.collect.ImmutableMap;
-import com.starrocks.catalog.DiskInfo;
-import com.starrocks.catalog.Replica;
-import com.starrocks.catalog.TabletMeta;
 import com.starrocks.cluster.ClusterNamespace;
 import com.starrocks.common.Config;
 import com.starrocks.qe.ConnectContext;
@@ -33,7 +29,6 @@ import com.starrocks.sql.ast.DropTableStmt;
 import com.starrocks.sql.ast.StatementBase;
 import com.starrocks.sql.ast.UserIdentity;
 import com.starrocks.sql.parser.SqlParser;
-import com.starrocks.system.Backend;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -196,30 +191,6 @@ public abstract class TestWithFeService {
         for (String sql : sqls) {
             CreateTableStmt stmt = (CreateTableStmt) parseAndAnalyzeStmt(sql);
             StarRocksAssert.utCreateTableWithRetry(stmt);
-        }
-        updateReplicaPathHash();
-    }
-
-    private void updateReplicaPathHash() {
-        com.google.common.collect.Table<Long, Long, Replica> replicaMetaTable =
-                GlobalStateMgr.getCurrentState().getTabletInvertedIndex()
-                        .getReplicaMetaTable();
-        for (com.google.common.collect.Table.Cell<Long, Long, Replica> cell : replicaMetaTable.cellSet()) {
-            long beId = cell.getColumnKey();
-            Backend be = GlobalStateMgr.getCurrentState().getNodeMgr().getClusterInfo().getBackend(beId);
-            if (be == null) {
-                continue;
-            }
-            Replica replica = cell.getValue();
-            TabletMeta tabletMeta =
-                    GlobalStateMgr.getCurrentState().getTabletInvertedIndex().getTabletMeta(cell.getRowKey());
-            ImmutableMap<String, DiskInfo> diskMap = be.getDisks();
-            for (DiskInfo diskInfo : diskMap.values()) {
-                if (diskInfo.getStorageMedium() == tabletMeta.getStorageMedium()) {
-                    replica.setPathHash(diskInfo.getPathHash());
-                    break;
-                }
-            }
         }
     }
 

@@ -822,6 +822,11 @@ under the License.
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>bundle</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
