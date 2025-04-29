@@ -583,7 +583,6 @@ public class ReportHandler extends Daemon implements MemoryTrackable {
         long start = System.currentTimeMillis();
         try {
             LOG.debug("begin to do tablet diff with backend[{}]. num: {}", backendId, backendTablets.size());
-            // backingReplicaMetaTable.row(backendId) won't return null
             Map<Long, Replica> replicaMetaWithBackend = tabletInvertedIndex.getReplicaMetaWithBackend(backendId);
             // traverse replicas in meta with this backend
             for (Map.Entry<Long, Replica> entry : replicaMetaWithBackend.entrySet()) {
