@@ -94,6 +94,7 @@ import com.starrocks.http.rest.SyncCloudTableMetaAction;
 import com.starrocks.http.rest.TableQueryPlanAction;
 import com.starrocks.http.rest.TableRowCountAction;
 import com.starrocks.http.rest.TableSchemaAction;
+import com.starrocks.http.rest.ThriftStressTestAction;
 import com.starrocks.http.rest.TransactionLoadAction;
 import com.starrocks.http.rest.TriggerAction;
 import com.starrocks.http.rest.v2.TablePartitionAction;
@@ -227,6 +228,8 @@ public class HttpServer {
         BootstrapFinishAction.registerAction(controller);
 
         OAuth2Action.registerAction(controller);
+
+        ThriftStressTestAction.registerAction(controller);
     }
 
     public void start() {

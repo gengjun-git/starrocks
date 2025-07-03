@@ -336,6 +336,12 @@ public class ConfigBase {
             }
         }
 
+        try {
+            Thread.sleep(30000L);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         Field field = allMutableConfigs.get(key);
         if (field == null) {
             throw new InvalidConfException(ErrorCode.ERROR_CONFIG_NOT_EXIST, key);

@@ -972,14 +972,14 @@ public class Config extends ConfigBase {
      * The thrift server max worker threads
      */
     @ConfField(mutable = true)
-    public static int thrift_server_max_worker_threads = 4096;
+    public static int thrift_server_max_worker_threads = 1024;
 
     /**
      * If there is no thread to handle new request, the request will be pend to a queue,
      * the pending queue size is thrift_server_queue_size
      */
     @ConfField
-    public static int thrift_server_queue_size = 4096;
+    public static int thrift_server_queue_size = 1024;
 
     /**
      * Maximal wait seconds for straggler node in load
