@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.validation.constraints.NotNull;
 
 public abstract class LakeTableAlterMetaJobBase extends AlterJobV2 {
@@ -81,6 +82,24 @@ public abstract class LakeTableAlterMetaJobBase extends AlterJobV2 {
     public LakeTableAlterMetaJobBase(long jobId, JobType jobType, long dbId, long tableId,
                                      String tableName, long timeoutMs) {
         super(jobId, jobType, dbId, tableId, tableName, timeoutMs);
+    }
+
+    protected LakeTableAlterMetaJobBase(LakeTableAlterMetaJobBase job) {
+        super(job);
+        this.watershedTxnId = job.watershedTxnId;
+        this.watershedGtid = job.watershedGtid;
+        if (job.physicalPartitionIndexMap != null) {
+            this.physicalPartitionIndexMap = HashBasedTable.create();
+            this.physicalPartitionIndexMap.putAll(job.physicalPartitionIndexMap);
+        } else {
+            this.physicalPartitionIndexMap = null;
+        }
+        if (job.commitVersionMap != null) {
+            this.commitVersionMap = new HashMap<>();
+            this.commitVersionMap.putAll(job.commitVersionMap);
+        } else {
+            this.commitVersionMap = null;
+        }
     }
 
     @Override
@@ -111,7 +130,7 @@ public abstract class LakeTableAlterMetaJobBase extends AlterJobV2 {
             this.watershedTxnId = globalStateMgr.getGlobalTransactionMgr().getTransactionIDGenerator()
                     .getNextTransactionId();
             this.watershedGtid = globalStateMgr.getGtidGenerator().nextGtid();
-            GlobalStateMgr.getCurrentState().getEditLog().logAlterJob(this);
+            persistStateChange(this, this.jobState);
         }
 
         try {
@@ -168,13 +187,13 @@ public abstract class LakeTableAlterMetaJobBase extends AlterJobV2 {
                         commitVersion, jobId);
             }
 
-            this.jobState = JobState.FINISHED_REWRITING;
             this.finishedTimeMs = System.currentTimeMillis();
 
-            GlobalStateMgr.getCurrentState().getEditLog().logAlterJob(this);
+            persistStateChange(this, JobState.FINISHED_REWRITING, () -> {
+                // NOTE: !!! below this point, this update meta job must success unless the database or table been dropped. !!!
+                updateNextVersion(table);
+            });
 
-            // NOTE: !!! below this point, this update meta job must success unless the database or table been dropped. !!!
-            updateNextVersion(table);
         } finally {
             locker.unLockTablesWithIntensiveDbLock(db.getId(), Lists.newArrayList(table.getId()), LockType.WRITE);
         }
@@ -211,14 +230,13 @@ public abstract class LakeTableAlterMetaJobBase extends AlterJobV2 {
         Locker locker = new Locker();
         locker.lockTablesWithIntensiveDbLock(db.getId(), Lists.newArrayList(table.getId()), LockType.WRITE);
         try {
-            updateCatalog(db, table, false);
-            this.jobState = JobState.FINISHED;
             this.finishedTimeMs = System.currentTimeMillis();
-            GlobalStateMgr.getCurrentState().getEditLog().logAlterJob(this);
-            // set visible version
-            updateVisibleVersion(table);
-            table.setState(OlapTable.OlapTableState.NORMAL);
-
+            persistStateChange(this, JobState.FINISHED, () -> {
+                updateCatalog(db, table, false);
+                // set visible version
+                updateVisibleVersion(table);
+                table.setState(OlapTable.OlapTableState.NORMAL);
+            });
         } finally {
             locker.unLockTablesWithIntensiveDbLock(db.getId(), Lists.newArrayList(table.getId()), LockType.WRITE);
         }
@@ -458,22 +476,31 @@ public abstract class LakeTableAlterMetaJobBase extends AlterJobV2 {
                     // Cancel a job of state `FINISHED_REWRITING` only when the database or table has been dropped.
                     if (jobState == JobState.FINISHED_REWRITING) {
                         return false;
+                    } else {
+                        updateErrorInfo(errMsg);
+                        persistStateChange(this, JobState.CANCELLED, () -> {
+                            table.setState(OlapTable.OlapTableState.NORMAL);
+                        });
                     }
-                    table.setState(OlapTable.OlapTableState.NORMAL);
                 } finally {
                     locker.unLockTablesWithIntensiveDbLock(db.getId(), Lists.newArrayList(table.getId()), LockType.WRITE);
                 }
             }
         }
+        if (jobState != JobState.CANCELLED) {
+            updateErrorInfo(errMsg);
+            persistStateChange(this, JobState.CANCELLED);
+        }
+        return true;
+    }
+
+    private void updateErrorInfo(String errMsg) {
         if (span != null) {
             span.setStatus(StatusCode.ERROR, errMsg);
             span.end();
         }
-        this.jobState = JobState.CANCELLED;
         this.errMsg = errMsg;
         this.finishedTimeMs = System.currentTimeMillis();
-        GlobalStateMgr.getCurrentState().getEditLog().logAlterJob(this);
-        return true;
     }
 
     @Override

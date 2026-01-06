@@ -131,6 +131,26 @@ public class MergePartitionJob extends AlterJobV2 implements GsonPostProcessable
         this.postfix = "job" + jobId;
     }
 
+    protected MergePartitionJob(MergePartitionJob job) {
+        super(job);
+        this.watershedTxnId = job.watershedTxnId;
+        if (job.tempPartitionIdToSourcePartitionIds != null) {
+            this.tempPartitionIdToSourcePartitionIds = ArrayListMultimap.create();
+            this.tempPartitionIdToSourcePartitionIds.putAll(job.tempPartitionIdToSourcePartitionIds);
+        } else {
+            this.tempPartitionIdToSourcePartitionIds = null;
+        }
+        if (job.tempPartitionNameToSourcePartitionNames != null) {
+            this.tempPartitionNameToSourcePartitionNames = ArrayListMultimap.create();
+            this.tempPartitionNameToSourcePartitionNames.putAll(job.tempPartitionNameToSourcePartitionNames);
+        } else {
+            this.tempPartitionNameToSourcePartitionNames = null;
+        }
+        this.rewriteTasks = job.rewriteTasks == null ? null : Lists.newArrayList(job.rewriteTasks);
+        this.distributionInfo = job.distributionInfo;
+        this.optimizeOperation = job.optimizeOperation;
+    }
+
     public List<Long> getTmpPartitionIds() {
         return tempPartitionIdToSourcePartitionIds.keySet().stream().collect(Collectors.toList());
     }
@@ -272,7 +292,6 @@ public class MergePartitionJob extends AlterJobV2 implements GsonPostProcessable
 
             List<String> partitionValues = Lists.newArrayList();
             partitionValues.add(range.lowerEndpoint().getKeys().get(0).getStringValue());
-            String targetPartitionKey = partitionValues.get(0);
 
             Partition sourcePartition = olapTable.getPartition(sourcePartitionId);
             if (sourcePartition == null) {
@@ -391,13 +410,14 @@ public class MergePartitionJob extends AlterJobV2 implements GsonPostProcessable
         // wait previous transactions finished
         this.watershedTxnId =
                     GlobalStateMgr.getCurrentState().getGlobalTransactionMgr().getTransactionIDGenerator().getNextTransactionId();
-        this.jobState = JobState.WAITING_TXN;
         span.setAttribute("createPartitionElapse", createPartitionElapse);
         span.setAttribute("watershedTxnId", this.watershedTxnId);
         span.addEvent("setWaitingTxn");
 
         // write edit log
-        GlobalStateMgr.getCurrentState().getEditLog().logAlterJob(this);
+        // AddPartitions log will be written when creating temp partitions,
+        // so do not need to add createMergedTempPartitionsFromPartitions into applier.
+        persistStateChange(this, JobState.WAITING_TXN);
         LOG.info("transfer merge partition job {} state to {}, watershed txn_id: {}", jobId, this.jobState, watershedTxnId);
     }
 
@@ -614,10 +634,10 @@ public class MergePartitionJob extends AlterJobV2 implements GsonPostProcessable
         }
 
         this.progress = 100;
-        this.jobState = JobState.FINISHED;
         this.finishedTimeMs = System.currentTimeMillis();
 
-        GlobalStateMgr.getCurrentState().getEditLog().logAlterJob(this);
+        // Replace partition log will be written in onFinished function, so do not need to add onFinished into applier.
+        persistStateChange(this, JobState.FINISHED);
         LOG.info("optimize job finished: {}", jobId);
         this.span.end();
     }
@@ -774,16 +794,19 @@ public class MergePartitionJob extends AlterJobV2 implements GsonPostProcessable
         if (jobState.isFinalState()) {
             return false;
         }
-        cancelInternal();
-
-        jobState = JobState.CANCELLED;
         this.errMsg = errMsg;
         this.finishedTimeMs = System.currentTimeMillis();
+        persistStateChange(this, JobState.CANCELLED, this::cancelInternal);
+
         LOG.info("cancel {} job {}, err: {}", this.type, jobId, errMsg);
-        GlobalStateMgr.getCurrentState().getEditLog().logAlterJob(this);
         span.setStatus(StatusCode.ERROR, errMsg);
         span.end();
         return true;
+    }
+
+    @Override
+    public AlterJobV2 copyForPersist() {
+        return new MergePartitionJob(this);
     }
 
     private void cancelInternal() {

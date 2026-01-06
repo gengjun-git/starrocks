@@ -101,6 +101,13 @@ public class LakeTableAsyncFastSchemaChangeJob extends LakeTableAlterMetaJobBase
         partitionsWithSchemaFile.addAll(other.partitionsWithSchemaFile);
     }
 
+    private LakeTableAsyncFastSchemaChangeJob(LakeTableAsyncFastSchemaChangeJob job, boolean copyForPersist) {
+        super(job);
+        this.schemaInfos = job.schemaInfos == null ? null : new ArrayList<>(job.schemaInfos);
+        this.disableFastSchemaEvolutionV2 = job.disableFastSchemaEvolutionV2;
+        this.historySchema = job.historySchema;
+    }
+
     public void setIndexTabletSchema(long indexMetaId, String indexName, SchemaInfo schemaInfo) {
         schemaInfos.add(new IndexSchemaInfo(indexMetaId, indexName, schemaInfo));
     }
@@ -249,6 +256,11 @@ public class LakeTableAsyncFastSchemaChangeJob extends LakeTableAlterMetaJobBase
 
     boolean isDisableFastSchemaEvolutionV2() {
         return disableFastSchemaEvolutionV2;
+    }
+
+    @Override
+    public AlterJobV2 copyForPersist() {
+        return new LakeTableAsyncFastSchemaChangeJob(this, true);
     }
 
     @SuppressWarnings("rawtypes")
