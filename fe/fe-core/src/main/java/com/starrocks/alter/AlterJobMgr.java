@@ -594,7 +594,7 @@ public class AlterJobMgr {
                 view.setComment(alterViewInfo.getComment());
             });
             AlterMVJobExecutor.inactiveRelatedMaterializedViewsRecursive(view,
-                    MaterializedViewExceptions.inactiveReasonForBaseViewChanged(view.getName()), false);
+                    MaterializedViewExceptions.inactiveReasonForBaseViewChanged(view.getName()));
             LOG.info("modify view[{}] definition to {}", view.getName(), inlineViewDef);
         } finally {
             locker.unLockTablesWithIntensiveDbLock(db.getId(), Lists.newArrayList(view.getId()), LockType.WRITE);
@@ -612,8 +612,6 @@ public class AlterJobMgr {
             view.setInlineViewDefWithSqlMode(alterViewInfo.getInlineViewDef(), alterViewInfo.getSqlMode());
             view.setNewFullSchema(alterViewInfo.getNewFullSchema());
             view.setComment(alterViewInfo.getComment());
-            AlterMVJobExecutor.inactiveRelatedMaterializedViewsRecursive(view,
-                    MaterializedViewExceptions.inactiveReasonForBaseViewChanged(view.getName()), true);
             LOG.info("modify view[{}] definition to {}", view.getName(), alterViewInfo.getInlineViewDef());
         } finally {
             locker.unLockTablesWithIntensiveDbLock(db.getId(), Lists.newArrayList(view.getId()), LockType.WRITE);

@@ -178,7 +178,7 @@ public class SchemaChangeHandler extends AlterHandler {
 
         // If optimized olap table contains related mvs, set those mv state to inactive.
         AlterMVJobExecutor.inactiveRelatedMaterializedViewsRecursive(olapTable,
-                MaterializedViewExceptions.inactiveReasonForBaseTableOptimized(olapTable.getName()), false);
+                MaterializedViewExceptions.inactiveReasonForBaseTableOptimized(olapTable.getName()));
 
         long timeoutSecond = PropertyAnalyzer.analyzeTimeout(propertyMap, Config.alter_table_timeout_second);
 
@@ -2100,13 +2100,13 @@ public class SchemaChangeHandler extends AlterHandler {
                             sortKeyUniqueIds);
                     // If optimized olap table contains related mvs, set those mv state to inactive.
                     AlterMVJobExecutor.inactiveRelatedMaterializedViewsRecursive(olapTable,
-                            MaterializedViewExceptions.inactiveReasonForBaseTableReorderColumns(olapTable.getName()), false);
+                            MaterializedViewExceptions.inactiveReasonForBaseTableReorderColumns(olapTable.getName()));
                     return createJobForProcessModifySortKeyColumn(db.getId(), olapTable, sortKeyIdxes, sortKeyUniqueIds);
                 } else {
                     processReorderColumn((ReorderColumnsClause) alterClause, olapTable, indexMetaIdToSchema);
                     // If optimized olap table contains related mvs, set those mv state to inactive.
                     AlterMVJobExecutor.inactiveRelatedMaterializedViewsRecursive(olapTable,
-                            MaterializedViewExceptions.inactiveReasonForBaseTableReorderColumns(olapTable.getName()), false);
+                            MaterializedViewExceptions.inactiveReasonForBaseTableReorderColumns(olapTable.getName()));
                 }
             } else if (alterClause instanceof ModifyTablePropertiesClause) {
                 // modify table properties

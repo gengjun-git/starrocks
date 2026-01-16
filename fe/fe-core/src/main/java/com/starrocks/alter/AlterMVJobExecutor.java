@@ -852,7 +852,7 @@ public class AlterMVJobExecutor extends AlterJobExecutor {
      * NOTE: This method will clear the related mvs' version map by default since the base table
      *  has broken from mv existed refreshed data.
      */
-    public static void inactiveRelatedMaterializedViewsRecursive(Table olapTable, String reason, boolean isReplay) {
+    public static void inactiveRelatedMaterializedViewsRecursive(Table olapTable, String reason) {
         if (olapTable == null) {
             return;
         }
@@ -861,11 +861,10 @@ public class AlterMVJobExecutor extends AlterJobExecutor {
                     "table:{}, reason:{}", olapTable.getName(), reason);
             return;
         }
-        // Only check this in leader and not replay to avoid duplicate inactive
-        if (!GlobalStateMgr.getCurrentState().isLeader() || isReplay) {
+        // Only check this in leader to avoid duplicate inactive
+        if (!GlobalStateMgr.getCurrentState().isLeader()) {
             LOG.warn("Skip to inactive related materialized views because of base table/view {} is " +
-                            "changed or dropped in the leader backgroud, isLeader: {}, isReplay, reason:{}",
-                    olapTable.getName(), GlobalStateMgr.getCurrentState().isLeader(), isReplay, reason);
+                            "changed or dropped in the leader backgroud,  reason:{}", olapTable.getName(), reason);
             return;
         }
         Set<MvId> inactiveMVIds = Sets.newHashSet();

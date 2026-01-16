@@ -429,9 +429,10 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                 if (!GlobalStateMgr.getCurrentState().getStorageVolumeMgr().bindDbToStorageVolume(volume, id)) {
                     throw new DdlException(String.format("Storage volume %s not exists", volume));
                 }
-                unprotectCreateDb(db);
                 String storageVolumeId = GlobalStateMgr.getCurrentState().getStorageVolumeMgr().getStorageVolumeIdOfDb(id);
-                GlobalStateMgr.getCurrentState().getEditLog().logCreateDb(db, storageVolumeId);
+                CreateDbInfo createDbInfo = new CreateDbInfo(db.getId(), db.getFullName());
+                createDbInfo.setStorageVolumeId(storageVolumeId);
+                GlobalStateMgr.getCurrentState().getEditLog().logCreateDb(createDbInfo, wal -> unprotectCreateDb(db));
             }
         } finally {
             unlock();
@@ -515,30 +516,32 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                                 " please use \"DROP DATABASE <database> FORCE\".");
             }
 
-            // save table names for recycling
             Set<String> tableNames = new HashSet<>(db.getTableNamesViewWithLock());
-            unprotectDropDb(db, isForceDrop, false);
-            recycleBin.recycleDatabase(db, tableNames, !isForceDrop);
-            db.setExist(false);
-
-            // 3. remove db from globalStateMgr
-            idToDb.remove(db.getId());
-            fullNameToDb.remove(db.getFullName());
-
-            // 4. drop mv task
-            TaskManager taskManager = GlobalStateMgr.getCurrentState().getTaskManager();
-            TGetTasksParams tasksParams = new TGetTasksParams();
-            tasksParams.setDb(dbName);
-            List<Long> dropTaskIdList = taskManager.filterTasks(tasksParams)
-                    .stream().map(Task::getId).collect(Collectors.toList());
-            taskManager.dropTasks(dropTaskIdList);
-
             DropDbInfo info = new DropDbInfo(db.getFullName(), isForceDrop);
-            GlobalStateMgr.getCurrentState().getEditLog().logDropDb(info);
+            GlobalStateMgr.getCurrentState().getEditLog().logDropDb(info, wal -> {
+                // 1. drop all tables in db
+                unprotectDropDb(db, isForceDrop, false);
 
-            // 5. Drop Pipes
-            PipeManager pipeManager = GlobalStateMgr.getCurrentState().getPipeManager();
-            pipeManager.dropPipesOfDb(dbName, db.getId());
+                // 2. recycle db
+                recycleBin.recycleDatabase(db, tableNames, !isForceDrop);
+                db.setExist(false);
+
+                // 3. remove db from globalStateMgr
+                idToDb.remove(db.getId());
+                fullNameToDb.remove(db.getFullName());
+
+                // 4. drop mv task
+                TaskManager taskManager = GlobalStateMgr.getCurrentState().getTaskManager();
+                TGetTasksParams tasksParams = new TGetTasksParams();
+                tasksParams.setDb(dbName);
+                List<Long> dropTaskIdList = taskManager.filterTasks(tasksParams)
+                        .stream().map(Task::getId).collect(Collectors.toList());
+                taskManager.dropTasks(dropTaskIdList);
+
+                // 5. Drop Pipes
+                PipeManager pipeManager = GlobalStateMgr.getCurrentState().getPipeManager();
+                pipeManager.dropPipesOfDb(dbName, db.getId());
+            });
 
             LOG.info("finish drop database[{}], id: {}, is force : {}", dbName, db.getId(), isForceDrop);
         } finally {
@@ -604,32 +607,40 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
                 // cause this db cannot recover anymore
             }
 
-            fullNameToDb.put(db.getFullName(), db);
-            idToDb.put(db.getId(), db);
-            Locker locker = new Locker();
-            locker.lockDatabase(db.getId(), LockType.WRITE);
-            db.setExist(true);
-            locker.unLockDatabase(db.getId(), LockType.WRITE);
-
-            List<MaterializedView> materializedViews = db.getMaterializedViews();
-            TaskManager taskManager = GlobalStateMgr.getCurrentState().getTaskManager();
-            for (MaterializedView materializedView : materializedViews) {
-                MaterializedViewRefreshType refreshType = materializedView.getRefreshScheme().getType();
-                if (refreshType != MaterializedViewRefreshType.SYNC) {
-                    Task task = TaskBuilder.buildMvTask(materializedView, db.getFullName());
-                    TaskBuilder.updateTaskInfo(task, materializedView);
-                    taskManager.createTask(task);
-                }
-            }
-
             // log
             RecoverInfo recoverInfo = new RecoverInfo(db.getId(), -1L, -1L);
-            GlobalStateMgr.getCurrentState().getEditLog().logRecoverDb(recoverInfo);
+            GlobalStateMgr.getCurrentState().getEditLog().logRecoverDb(recoverInfo, wal -> {
+                fullNameToDb.put(db.getFullName(), db);
+                idToDb.put(db.getId(), db);
+                Locker locker = new Locker();
+                locker.lockDatabase(db.getId(), LockType.WRITE);
+                db.setExist(true);
+                locker.unLockDatabase(db.getId(), LockType.WRITE);
+
+                try {
+                    recoverMvTasks(db);
+                } catch (DdlException e) {
+                    LOG.error("recover mv tasks failed after recover db {}", db.getFullName(), e);
+                }
+            });
         } finally {
             unlock();
         }
 
         LOG.info("finish recover database, name: {}, id: {}", recoverStmt.getDbName(), db.getId());
+    }
+
+    private void recoverMvTasks(Database db) throws DdlException {
+        List<MaterializedView> materializedViews = db.getMaterializedViews();
+        TaskManager taskManager = GlobalStateMgr.getCurrentState().getTaskManager();
+        for (MaterializedView materializedView : materializedViews) {
+            MaterializedViewRefreshType refreshType = materializedView.getRefreshScheme().getType();
+            if (refreshType != MaterializedViewRefreshType.SYNC) {
+                Task task = TaskBuilder.buildMvTask(materializedView, db.getFullName());
+                TaskBuilder.updateTaskInfo(task, materializedView);
+                taskManager.createTask(task);
+            }
+        }
     }
 
     public void recoverTable(RecoverTableStmt recoverStmt) throws DdlException {
@@ -3546,7 +3557,7 @@ public class LocalMetastore implements ConnectorMetadata, MVRepairHandler, Memor
             db.registerTableUnlocked(olapTable);
         });
         AlterMVJobExecutor.inactiveRelatedMaterializedViewsRecursive(olapTable,
-                MaterializedViewExceptions.inactiveReasonForBaseTableRenamed(oldTableName), false);
+                MaterializedViewExceptions.inactiveReasonForBaseTableRenamed(oldTableName));
         LOG.info("rename table[{}] to {}, tableId: {}", oldTableName, newTableName, olapTable.getId());
     }
 

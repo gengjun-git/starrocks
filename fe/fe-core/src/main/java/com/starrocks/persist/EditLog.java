@@ -1501,22 +1501,20 @@ public class EditLog {
         logJsonObject(OperationType.OP_DELETE_AUTO_INCREMENT_ID, info, walApplier);
     }
 
-    public void logCreateDb(Database db, String storageVolumeId) {
-        CreateDbInfo createDbInfo = new CreateDbInfo(db.getId(), db.getFullName());
-        createDbInfo.setStorageVolumeId(storageVolumeId);
-        logJsonObject(OperationType.OP_CREATE_DB_V2, createDbInfo);
+    public void logCreateDb(CreateDbInfo info, WALApplier walApplier) {
+        logJsonObject(OperationType.OP_CREATE_DB_V2, info, walApplier);
     }
 
-    public void logDropDb(DropDbInfo dropDbInfo) {
-        logJsonObject(OperationType.OP_DROP_DB, dropDbInfo);
+    public void logDropDb(DropDbInfo dropDbInfo, WALApplier walApplier) {
+        logJsonObject(OperationType.OP_DROP_DB, dropDbInfo, walApplier);
     }
 
     public void logEraseDb(long dbId, WALApplier walApplier) {
         logJsonObject(OperationType.OP_ERASE_DB_V2, new EraseDbLog(dbId), walApplier);
     }
 
-    public void logRecoverDb(RecoverInfo info) {
-        logJsonObject(OperationType.OP_RECOVER_DB_V2, info);
+    public void logRecoverDb(RecoverInfo info, WALApplier walApplier) {
+        logJsonObject(OperationType.OP_RECOVER_DB_V2, info, walApplier);
     }
 
     public void logAlterDb(DatabaseInfo dbInfo, WALApplier walApplier) {
@@ -1591,8 +1589,8 @@ public class EditLog {
         logJsonObject(OperationType.OP_BATCH_MODIFY_PARTITION, info);
     }
 
-    public void logDropTable(DropInfo info) {
-        logJsonObject(OperationType.OP_DROP_TABLE_V2, info);
+    public void logDropTable(DropInfo info, WALApplier walApplier) {
+        logJsonObject(OperationType.OP_DROP_TABLE_V2, info, walApplier);
     }
 
     public void logDisablePartitionRecovery(long partitionId, WALApplier walApplier) {
@@ -1611,12 +1609,12 @@ public class EditLog {
         logJsonObject(OperationType.OP_RECOVER_TABLE_V2, info, walApplier);
     }
 
-    public void logDropRollup(DropInfo info) {
-        logJsonObject(OperationType.OP_DROP_ROLLUP_V2, info);
+    public void logDropRollup(DropInfo info, WALApplier walApplier) {
+        logJsonObject(OperationType.OP_DROP_ROLLUP_V2, info, walApplier);
     }
 
-    public void logBatchDropRollup(BatchDropInfo batchDropInfo) {
-        logJsonObject(OperationType.OP_BATCH_DROP_ROLLUP, batchDropInfo);
+    public void logBatchDropRollup(BatchDropInfo batchDropInfo, WALApplier walApplier) {
+        logJsonObject(OperationType.OP_BATCH_DROP_ROLLUP, batchDropInfo, walApplier);
     }
 
     public JournalTask logFinishConsistencyCheck(ConsistencyCheckInfo info) {
