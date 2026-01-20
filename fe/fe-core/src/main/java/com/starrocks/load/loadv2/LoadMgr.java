@@ -46,7 +46,6 @@ import com.starrocks.common.DdlException;
 import com.starrocks.common.LabelAlreadyUsedException;
 import com.starrocks.common.LoadException;
 import com.starrocks.common.MetaNotFoundException;
-import com.starrocks.common.Pair;
 import com.starrocks.common.StarRocksException;
 import com.starrocks.common.TimeoutException;
 import com.starrocks.common.util.LogBuilder;
@@ -859,15 +858,6 @@ public class LoadMgr implements MemoryTrackable {
     @Override
     public Map<String, Long> estimateCount() {
         return ImmutableMap.of("LoadJob", (long) idToLoadJob.size());
-    }
-
-    @Override
-    public List<Pair<List<Object>, Long>> getSamples() {
-        List<Object> samples = idToLoadJob.values()
-                .stream()
-                .limit(MEMORY_JOB_SAMPLES)
-                .collect(Collectors.toList());
-        return Lists.newArrayList(Pair.create(samples, (long) idToLoadJob.size()));
     }
 
     public Map<Long, Long> getRunningLoadCount() {

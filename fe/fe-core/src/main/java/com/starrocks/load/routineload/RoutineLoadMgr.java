@@ -45,7 +45,6 @@ import com.starrocks.common.Config;
 import com.starrocks.common.DdlException;
 import com.starrocks.common.InternalErrorCode;
 import com.starrocks.common.MetaNotFoundException;
-import com.starrocks.common.Pair;
 import com.starrocks.common.StarRocksException;
 import com.starrocks.common.io.Writable;
 import com.starrocks.common.util.DebugUtil;
@@ -790,16 +789,6 @@ public class RoutineLoadMgr implements Writable, MemoryTrackable {
     @Override
     public Map<String, Long> estimateCount() {
         return ImmutableMap.of("RoutineLoad", (long) idToRoutineLoadJob.size());
-    }
-
-    @Override
-    public List<Pair<List<Object>, Long>> getSamples() {
-        List<Object> samples = idToRoutineLoadJob.values()
-                .stream()
-                .limit(MEMORY_JOB_SAMPLES)
-                .collect(Collectors.toList());
-
-        return Lists.newArrayList(Pair.create(samples, (long) idToRoutineLoadJob.size()));
     }
 
     public Map<Long, Long> getRunningRoutingLoadCount() {

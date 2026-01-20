@@ -22,12 +22,12 @@ import com.starrocks.catalog.Database;
 import com.starrocks.catalog.IcebergTable;
 import com.starrocks.common.Config;
 import com.starrocks.common.MetaNotFoundException;
-import com.starrocks.common.Pair;
 import com.starrocks.connector.ConnectorMetadatRequestContext;
 import com.starrocks.connector.ConnectorViewDefinition;
 import com.starrocks.connector.PlanMode;
 import com.starrocks.connector.exception.StarRocksConnectorException;
 import com.starrocks.connector.iceberg.rest.IcebergRESTCatalog;
+import com.starrocks.memory.estimate.Estimator;
 import com.starrocks.mysql.MysqlCommand;
 import com.starrocks.qe.ConnectContext;
 import com.starrocks.qe.SessionVariable;
@@ -67,8 +67,6 @@ public class CachingIcebergCatalog implements IcebergCatalog {
     private static final Logger LOG = LogManager.getLogger(CachingIcebergCatalog.class);
     public static final long NEVER_CACHE = 0;
     public static final long DEFAULT_CACHE_NUM = 100000;
-    private static final int MEMORY_META_SAMPLES = 10;
-    private static final int MEMORY_FILE_SAMPLES = 100;
     private static final int MEMORY_SNAPSHOT_SIZE = 1536; // approx memory size of one snapshot object without manifests
     private static final int MEMORY_MANIFEST_SIZE = 512; // approx memory size of one manifest object in snapshot
     private static final ThreadLocal<ConnectContext> TABLE_LOAD_CONTEXT = new ThreadLocal<>();
@@ -599,46 +597,16 @@ public class CachingIcebergCatalog implements IcebergCatalog {
     }
 
     @Override
-    public List<Pair<List<Object>, Long>> getSamples() {
-        Pair<List<Object>, Long> dbSamples = Pair.create(databases.asMap().values()
-                        .stream()
-                        .limit(MEMORY_META_SAMPLES)
-                        .collect(Collectors.toList()),
-                databases.estimatedSize());
-
-        List<List<String>> partitionNames = getAllCachedPartitionNames();
-        List<Object> partitions = partitionNames
-                .stream()
-                .flatMap(List::stream)
-                .limit(MEMORY_FILE_SAMPLES)
-                .collect(Collectors.toList());
-        long partitionTotal = partitionNames
-                .stream()
-                .mapToLong(List::size)
-                .sum();
-        Pair<List<Object>, Long> partitionSamples = Pair.create(partitions, partitionTotal);
-
-        List<Object> dataFiles = dataFileCache.asMap().values()
-                .stream().flatMap(Set::stream)
-                .limit(MEMORY_FILE_SAMPLES)
-                .collect(Collectors.toList());
-        long dataFilesTotal = dataFileCache.asMap().values()
-                .stream()
-                .mapToLong(Set::size)
-                .sum();
-        Pair<List<Object>, Long> dataFileSamples = Pair.create(dataFiles, dataFilesTotal);
-
-        List<Object> deleteFiles = deleteFileCache.asMap().values()
-                .stream().flatMap(Set::stream)
-                .limit(MEMORY_FILE_SAMPLES)
-                .collect(Collectors.toList());
-        long deleteFilesTotal = deleteFileCache.asMap().values()
-                .stream()
-                .mapToLong(Set::size)
-                .sum();
-        Pair<List<Object>, Long> deleteFileSamples = Pair.create(deleteFiles, deleteFilesTotal);
-
-        return Lists.newArrayList(dbSamples, partitionSamples, dataFileSamples, deleteFileSamples);
+    public long estimateSize() {
+        return Estimator.estimate(tables.asMap()) +
+                Estimator.estimate(databases.asMap()) +
+                Estimator.estimate(icebergProperties) +
+                Estimator.estimate(dataFileCache.asMap()) +
+                Estimator.estimate(deleteFileCache.asMap()) +
+                Estimator.estimate(metaFileCacheMap) +
+                Estimator.estimate(tableLatestAccessTime) +
+                Estimator.estimate(tableLatestRefreshTime) +
+                Estimator.estimate(partitionCache.asMap());
     }
 
     @Override

@@ -35,12 +35,10 @@
 package com.starrocks.qe;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.starrocks.catalog.MvId;
 import com.starrocks.common.AlreadyExistsException;
 import com.starrocks.common.Config;
-import com.starrocks.common.Pair;
 import com.starrocks.common.StarRocksException;
 import com.starrocks.common.Status;
 import com.starrocks.common.util.DebugUtil;
@@ -341,15 +339,6 @@ public final class QeProcessorImpl implements QeProcessor, MemoryTrackable {
     @Override
     public long getCoordinatorCount() {
         return coordinatorMap.size();
-    }
-
-    @Override
-    public List<Pair<List<Object>, Long>> getSamples() {
-        List<Object> samples = coordinatorMap.values()
-                .stream()
-                .limit(MEMORY_QUERY_SAMPLES)
-                .collect(Collectors.toList());
-        return Lists.newArrayList(Pair.create(samples, (long) coordinatorMap.size()));
     }
 
     @Override
