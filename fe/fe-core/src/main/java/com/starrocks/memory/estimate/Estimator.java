@@ -39,6 +39,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * - Support for custom estimators for specific types
  * - Caching of class shallow sizes for performance
  * - Dynamic sample size calculation based on max depth to limit total computations
+ * <p>
+ * Important: This estimator will access all fields of an object,
+ * you should make sure the object is immutable or is protected by lock when calling estimate
  */
 public class Estimator {
 
@@ -216,7 +219,7 @@ public class Estimator {
         Class<?> clazz = obj.getClass();
 
         // for arrays, calculate size without caching,
-        // or the cached size for array will be large because every length will generate a new class
+        // because the shallow size of arrays depends on their length
         if (clazz.isArray()) {
             int length = Array.getLength(obj);
             Class<?> componentType = clazz.getComponentType();
@@ -233,7 +236,7 @@ public class Estimator {
 
     public static long shallow(Class<?> clazz) {
         if (clazz.isArray()) {
-            throw new IllegalArgumentException("Use shallow() for array instances");
+            throw new IllegalArgumentException("Use shallow(Object obj) for array instances");
         }
         return SHALLOW_SIZE_CACHE.computeIfAbsent(clazz,
                 k -> ClassLayout.parseClass(clazz).instanceSize());

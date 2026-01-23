@@ -453,6 +453,31 @@ class EstimatorTest {
     }
 
     @Test
+    void testPrimitiveArrayShallowSizeNotCached() {
+        int[] intArray = new int[100];
+        long[] longArray = new long[50];
+        byte[] byteArray = new byte[200];
+
+        assertTrue(Estimator.SHALLOW_SIZE_CACHE.isEmpty());
+
+        // Calculate shallow size for primitive arrays
+        long intSize = Estimator.shallow(intArray);
+        long longSize = Estimator.shallow(longArray);
+        long byteSize = Estimator.shallow(byteArray);
+
+        // Verify correct sizes are returned
+        assertEquals(Estimator.ARRAY_HEADER_SIZE + 100 * 4, intSize);
+        assertEquals(Estimator.ARRAY_HEADER_SIZE + 50 * 8, longSize);
+        assertEquals(Estimator.ARRAY_HEADER_SIZE + 200, byteSize);
+
+        // Verify primitive arrays are NOT cached (because each length produces different size)
+        assertTrue(Estimator.SHALLOW_SIZE_CACHE.isEmpty());
+        assertFalse(Estimator.SHALLOW_SIZE_CACHE.containsKey(int[].class));
+        assertFalse(Estimator.SHALLOW_SIZE_CACHE.containsKey(long[].class));
+        assertFalse(Estimator.SHALLOW_SIZE_CACHE.containsKey(byte[].class));
+    }
+
+    @Test
     void testNestedFieldsAreCached() {
         NestedObject obj = new NestedObject();
         obj.inner = new SimpleObject(1, "test");
