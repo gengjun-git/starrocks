@@ -27,8 +27,12 @@ import com.starrocks.persist.gson.GsonUtils;
 import com.starrocks.qe.QeProcessorImpl;
 import com.starrocks.server.GlobalStateMgr;
 import com.starrocks.sql.optimizer.statistics.CacheDictManager;
+import com.starrocks.sql.optimizer.statistics.CacheRelaxDictManager;
 import com.starrocks.sql.optimizer.statistics.CachedStatisticStorage;
+import com.starrocks.sql.optimizer.statistics.ColumnMinMaxMgr;
 import com.starrocks.sql.optimizer.statistics.IDictManager;
+import com.starrocks.sql.optimizer.statistics.IMinMaxStatsMgr;
+import com.starrocks.sql.optimizer.statistics.IRelaxDictManager;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -82,6 +86,8 @@ public class MemoryUsageTracker extends FrontendDaemon {
         if (currentState.getStatisticStorage() instanceof CachedStatisticStorage) {
             registerMemoryTracker("Statistics", (CachedStatisticStorage) currentState.getStatisticStorage());
         }
+        registerMemoryTracker("Statistics", (CacheRelaxDictManager) IRelaxDictManager.getInstance());
+        registerMemoryTracker("Statistics", (ColumnMinMaxMgr) IMinMaxStatsMgr.internalInstance());
 
         QeProcessorImpl qeProcessor = QeProcessorImpl.INSTANCE;
         if (qeProcessor != null) {
