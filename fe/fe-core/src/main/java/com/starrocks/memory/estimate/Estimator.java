@@ -54,16 +54,16 @@ public class Estimator {
     private static final int REFERENCE_SIZE = 4;
 
     // Cache for shallow sizes of classes
-    private static final Map<Class<?>, Long> SHALLOW_SIZE_CACHE = new ConcurrentHashMap<>();
+    protected static final Map<Class<?>, Long> SHALLOW_SIZE_CACHE = new ConcurrentHashMap<>();
 
     // Registry for custom estimators
-    private static final Map<Class<?>, CustomEstimator> CUSTOM_ESTIMATORS = new HashMap<>();
+    protected static final Map<Class<?>, CustomEstimator> CUSTOM_ESTIMATORS = new HashMap<>();
 
     // Registry for classes that should only calculate shallow memory
-    private static final Set<Class<?>> SHALLOW_MEMORY_CLASSES = ConcurrentHashMap.newKeySet();
+    protected static final Set<Class<?>> SHALLOW_MEMORY_CLASSES = ConcurrentHashMap.newKeySet();
 
     // Cache for nested reference fields of classes
-    private static final Map<Class<?>, List<Field>> CLASS_NESTED_FIELDS = new ConcurrentHashMap<>();
+    protected static final Map<Class<?>, List<Field>> CLASS_NESTED_FIELDS = new ConcurrentHashMap<>();
 
     // Primitive type sizes in bytes
     private static final Map<Class<?>, Integer> PRIMITIVE_SIZES = Map.of(
@@ -343,13 +343,20 @@ public class Estimator {
      * @return the estimated memory size in bytes
      */
     private static long estimateObject(Object obj, int maxDepth, int sampleSize) {
-        long size = shallow(obj);
+        Class<?> clazzTmp = obj.getClass();
+        List<Class<?>> classList = new ArrayList<>();
+        while (clazzTmp != null
+                && clazzTmp != Object.class) {
+            if (clazzTmp.isAnnotationPresent(IgnoreMemoryTrack.class)) {
+                return 0;
+            }
+            classList.add(clazzTmp);
+            clazzTmp = clazzTmp.getSuperclass();
+        }
 
-        Class<?> clazz = obj.getClass();
+        long size = shallow(obj);
         boolean nestedFieldExists = false;
-        while (clazz != null
-                && clazz != Object.class
-                && !clazz.isAnnotationPresent(IgnoreMemoryTrack.class)) {
+        for (Class<?> clazz : classList) {
             List<Field> nestedFields = CLASS_NESTED_FIELDS.get(clazz);
             if (nestedFields == null) {
                 nestedFields = new ArrayList<>();
@@ -388,12 +395,10 @@ public class Estimator {
                     size += estimateNestedField(obj, field, maxDepth, sampleSize);
                 }
             }
-            clazz = clazz.getSuperclass();
         }
 
-        clazz = obj.getClass();
-        if (!nestedFieldExists && clazz != Object.class
-                && !clazz.isAnnotationPresent(IgnoreMemoryTrack.class)) {
+        Class<?> clazz = obj.getClass();
+        if (!nestedFieldExists && clazz != Object.class) {
             // Cache as shallow memory class to avoid future recursive traversal
             SHALLOW_MEMORY_CLASSES.add(clazz);
         }
