@@ -53,6 +53,8 @@ public class Estimator {
     // Array header size: object header (12 bytes) + length field (4 bytes) = 16 bytes on 64-bit JVM
     public static final int ARRAY_HEADER_SIZE = 16;
 
+    private static final long HIDDEN_CLASS_SHALLOW_SIZE = 16;
+
     // Reference size on 64-bit JVM (with compressed oops, typically 4 bytes; without, 8 bytes)
     private static final int REFERENCE_SIZE = 4;
 
@@ -230,16 +232,34 @@ public class Estimator {
             }
         }
 
-        return SHALLOW_SIZE_CACHE.computeIfAbsent(clazz,
-                k -> ClassLayout.parseInstance(obj).instanceSize());
+        return SHALLOW_SIZE_CACHE.computeIfAbsent(clazz, k -> {
+            if (isHiddenClass(clazz)) {
+                return HIDDEN_CLASS_SHALLOW_SIZE;
+            } else {
+                try {
+                    return ClassLayout.parseInstance(obj).instanceSize();
+                } catch (RuntimeException e) {
+                    return HIDDEN_CLASS_SHALLOW_SIZE;
+                }
+            }
+        });
     }
 
     public static long shallow(Class<?> clazz) {
         if (clazz.isArray()) {
             throw new IllegalArgumentException("Use shallow(Object obj) for array instances");
         }
-        return SHALLOW_SIZE_CACHE.computeIfAbsent(clazz,
-                k -> ClassLayout.parseClass(clazz).instanceSize());
+        return SHALLOW_SIZE_CACHE.computeIfAbsent(clazz, k -> {
+            if (isHiddenClass(clazz)) {
+                return HIDDEN_CLASS_SHALLOW_SIZE;
+            } else {
+                try {
+                    return ClassLayout.parseClass(clazz).instanceSize();
+                } catch (RuntimeException e) {
+                    return HIDDEN_CLASS_SHALLOW_SIZE;
+                }
+            }
+        });
     }
 
     /**
@@ -346,6 +366,9 @@ public class Estimator {
      * @return the estimated memory size in bytes
      */
     private static long estimateObject(Object obj, int maxDepth, int sampleSize) {
+        if (isHiddenClass(obj.getClass())) {
+            return HIDDEN_CLASS_SHALLOW_SIZE;
+        }
         Class<?> clazzTmp = obj.getClass();
         List<Class<?>> classList = new ArrayList<>();
         while (clazzTmp != null
@@ -500,5 +523,10 @@ public class Estimator {
         }
 
         return samples;
+    }
+
+    private static boolean isHiddenClass(Class<?> c) {
+        return c.isHidden()
+                || c.isSynthetic() && c.getName().contains("$$Lambda$");
     }
 }

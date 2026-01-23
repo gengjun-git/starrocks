@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -866,5 +868,107 @@ class EstimatorTest {
         Map<String, Integer> mapField;
         SimpleObject nestedField;
         Status enumField;
+    }
+
+    // ==================== Hidden Class Tests ====================
+
+    @Test
+    void testShallowSizeLambdaExpression() {
+        // Lambda expressions generate hidden classes (or synthetic classes with $$Lambda$ in name)
+        Supplier<String> lambda = () -> "hello";
+
+        long size = Estimator.shallow(lambda);
+        // Hidden classes should return HIDDEN_CLASS_SHALLOW_SIZE (16)
+        assertEquals(16, size);
+    }
+
+    @Test
+    void testShallowSizeLambdaWithCapture() {
+        // Lambda that captures a variable
+        String captured = "captured value";
+        Function<String, String> lambda = (s) -> captured + s;
+
+        long size = Estimator.shallow(lambda);
+        // Hidden classes should return HIDDEN_CLASS_SHALLOW_SIZE (16)
+        assertEquals(16, size);
+    }
+
+    @Test
+    void testEstimateLambdaExpression() {
+        Supplier<Integer> lambda = () -> 42;
+
+        long size = Estimator.estimate(lambda);
+        assertEquals(16, size);
+    }
+
+    @Test
+    void testEstimateObjectContainingLambda() {
+        ObjectWithLambda obj = new ObjectWithLambda();
+        obj.name = "test";
+        obj.callback = () -> "callback result";
+
+        long size = Estimator.estimate(obj);
+        // Size should include object shallow size + string size + lambda size (16)
+        assertTrue(size > Estimator.shallow(obj));
+    }
+
+    @Test
+    void testEstimateCollectionOfLambdas() {
+        List<Supplier<String>> lambdas = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            final int index = i;
+            lambdas.add(() -> "value" + index);
+        }
+
+        long size = Estimator.estimate(lambdas);
+        // Size should be positive and include list overhead + lambda sizes
+        assertTrue(size > Estimator.shallow(lambdas));
+    }
+
+    @Test
+    void testShallowSizeMethodReference() {
+        // Method references also generate hidden/synthetic classes
+        Function<String, Integer> methodRef = String::length;
+
+        long size = Estimator.shallow(methodRef);
+        // Method references should also return HIDDEN_CLASS_SHALLOW_SIZE (16)
+        assertEquals(16, size);
+    }
+
+    @Test
+    void testLambdaClassIsCachedCorrectly() {
+        Supplier<String> lambda = () -> "test";
+        Class<?> lambdaClass = lambda.getClass();
+
+        // First call should populate the cache
+        long size1 = Estimator.shallow(lambda);
+        assertTrue(Estimator.SHALLOW_SIZE_CACHE.containsKey(lambdaClass));
+
+        // Second call should use cached value
+        long size2 = Estimator.shallow(lambda);
+        assertEquals(size1, size2);
+        assertEquals(16, size1);
+    }
+
+    @Test
+    void testMultipleDifferentLambdasHaveSameShallowSize() {
+        Supplier<String> lambda1 = () -> "first";
+        Supplier<String> lambda2 = () -> "second";
+        Function<Integer, String> lambda3 = (i) -> "number: " + i;
+
+        long size1 = Estimator.shallow(lambda1);
+        long size2 = Estimator.shallow(lambda2);
+        long size3 = Estimator.shallow(lambda3);
+
+        // All hidden classes should have the same shallow size
+        assertEquals(16, size1);
+        assertEquals(16, size2);
+        assertEquals(16, size3);
+    }
+
+    // Helper class for hidden class tests
+    static class ObjectWithLambda {
+        String name;
+        Supplier<String> callback;
     }
 }
