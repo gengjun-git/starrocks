@@ -62,7 +62,6 @@ import java.util.stream.Collectors;
 
 public class StreamLoadMgr implements MemoryTrackable {
     private static final Logger LOG = LogManager.getLogger(StreamLoadMgr.class);
-    private static final int MEMORY_JOB_SAMPLES = 10;
 
     // label -> AbstractStreamLoadTask (unified management)
     private Map<String, AbstractStreamLoadTask> idToStreamLoadTask;

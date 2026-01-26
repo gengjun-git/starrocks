@@ -105,7 +105,6 @@ import java.util.stream.Collectors;
  */
 public class LoadMgr implements MemoryTrackable {
     private static final Logger LOG = LogManager.getLogger(LoadMgr.class);
-    private static final int MEMORY_JOB_SAMPLES = 10;
 
     private final Map<Long, LoadJob> idToLoadJob = Maps.newConcurrentMap();
     private final Map<Long, Map<String, List<LoadJob>>> dbIdToLabelToLoadJobs = Maps.newConcurrentMap();

@@ -493,7 +493,7 @@ public class TabletInvertedIndex implements MemoryTrackable {
             return Estimator.estimate(tabletMetaMap) +
                    Estimator.estimate(replicaToTabletMap) +
                    Estimator.estimate(forceDeleteTablets) +
-                   Estimator.estimate(replicaMetaTable, 3, 1);
+                   Estimator.estimate(replicaMetaTable, 3, 10);
         } finally {
             readUnlock();
         }

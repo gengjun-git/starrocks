@@ -95,7 +95,6 @@ import java.util.stream.Collectors;
 
 public class RoutineLoadMgr implements Writable, MemoryTrackable {
     private static final Logger LOG = LogManager.getLogger(RoutineLoadMgr.class);
-    private static final int MEMORY_JOB_SAMPLES = 10;
 
     // warehouse ==> {be : running tasks num}
     private Map<Long, Map<Long, Integer>> warehouseNodeTasksNum = Maps.newHashMap();
