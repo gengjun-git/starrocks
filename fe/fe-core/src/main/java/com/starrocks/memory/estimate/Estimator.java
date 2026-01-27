@@ -22,7 +22,9 @@ import java.lang.reflect.InaccessibleObjectException;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +84,13 @@ public class Estimator {
             double.class, 8
     );
 
+    // Set to track visited objects and avoid counting the same object twice
+    private final Set<Object> sampled;
+
+    public Estimator() {
+        this.sampled = Collections.newSetFromMap(new IdentityHashMap<>());
+    }
+
     /**
      * Register a custom estimator for a specific class.
      *
@@ -140,7 +149,7 @@ public class Estimator {
      * @return the estimated memory size in bytes
      */
     public static long estimate(Object obj, int maxDepth) {
-        return estimateInternal(obj, maxDepth, DEFAULT_SAMPLE_SIZE);
+        return new Estimator().estimateInternal(obj, maxDepth, DEFAULT_SAMPLE_SIZE);
     }
 
     /**
@@ -152,14 +161,19 @@ public class Estimator {
      * @return the estimated memory size in bytes
      */
     public static long estimate(Object obj, int maxDepth, int sampleSize) {
-        return estimateInternal(obj, maxDepth, sampleSize);
+        return new Estimator().estimateInternal(obj, maxDepth, sampleSize);
     }
 
     /**
-     * Internal estimation method with sample size parameter.
+     * Internal estimation method with sampled set to track visited objects.
      */
-    private static long estimateInternal(Object obj, int maxDepth, int sampleSize) {
+    private long estimateInternal(Object obj, int maxDepth, int sampleSize) {
         if (obj == null) {
+            return 0;
+        }
+
+        // Skip if already visited (avoid counting the same object twice)
+        if (!sampled.add(obj)) {
             return 0;
         }
 
@@ -270,7 +284,7 @@ public class Estimator {
      * @param sampleSize the number of elements to sample
      * @return the estimated memory size in bytes
      */
-    private static long estimateCollection(Collection<?> collection, int maxDepth, int sampleSize) {
+    private long estimateCollection(Collection<?> collection, int maxDepth, int sampleSize) {
         if (collection == null || collection.isEmpty()) {
             return collection == null ? 0 : shallow(collection);
         }
@@ -320,7 +334,7 @@ public class Estimator {
      * @param sampleSize the number of elements to sample
      * @return the estimated memory size in bytes
      */
-    private static long estimateArray(Object array, int maxDepth, int sampleSize) {
+    private long estimateArray(Object array, int maxDepth, int sampleSize) {
         int length = Array.getLength(array);
         Class<?> componentType = array.getClass().getComponentType();
 
@@ -365,7 +379,7 @@ public class Estimator {
      * @param sampleSize the number of elements to sample for collections/arrays
      * @return the estimated memory size in bytes
      */
-    private static long estimateObject(Object obj, int maxDepth, int sampleSize) {
+    private long estimateObject(Object obj, int maxDepth, int sampleSize) {
         if (isHiddenClass(obj.getClass())) {
             return HIDDEN_CLASS_SHALLOW_SIZE;
         }
@@ -432,7 +446,7 @@ public class Estimator {
         return size;
     }
 
-    private static long estimateNestedField(Object obj, Field field, int maxDepth, int sampleSize) {
+    private long estimateNestedField(Object obj, Field field, int maxDepth, int sampleSize) {
         long size = 0;
         try {
             field.setAccessible(true);

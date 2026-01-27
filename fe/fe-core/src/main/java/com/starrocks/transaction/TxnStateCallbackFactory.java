@@ -21,9 +21,7 @@ import com.google.common.collect.Maps;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 // saves all TxnStateChangeListeners
 public class TxnStateCallbackFactory {

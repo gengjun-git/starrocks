@@ -171,11 +171,8 @@ public class CachingIcebergCatalog implements IcebergCatalog {
         this.dataFileCache = enableCache ? Caffeine.newBuilder()
                 .executor(executorService)
                 .expireAfterWrite(icebergProperties.getIcebergMetaCacheTtlSec(), SECONDS)
-                .weigher((Weigher<String, Set<DataFile>>) (String key, Set<DataFile> files) -> {
-                    long size = SizeEstimator.estimate(key);
-                    if (!files.isEmpty()) {
-                        size += 1L * SizeEstimator.estimate(files.iterator().next()) * files.size();
-                    }
+                .weigher((String key, Set<DataFile> files) -> {
+                    long size = Estimator.estimate(key) + Estimator.estimate(files, 15, 100);
                     return (size > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) size;
                 })
                 .maximumWeight(dataFileCacheSize)
@@ -189,11 +186,8 @@ public class CachingIcebergCatalog implements IcebergCatalog {
         this.deleteFileCache = enableCache ? Caffeine.newBuilder()
                 .executor(executorService)
                 .expireAfterWrite(icebergProperties.getIcebergMetaCacheTtlSec(), SECONDS)
-                .weigher((Weigher<String, Set<DeleteFile>>) (String key, Set<DeleteFile> files) -> {
-                    long size = SizeEstimator.estimate(key);
-                    if (!files.isEmpty()) {
-                        size += 1L * SizeEstimator.estimate(files.iterator().next()) * files.size();
-                    }
+                .weigher((String key, Set<DeleteFile> files) -> {
+                    long size = Estimator.estimate(key) + Estimator.estimate(files, 15, 100);
                     return (size > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) size;
                 })
                 .maximumWeight(deleteFileCacheSize)
@@ -598,10 +592,27 @@ public class CachingIcebergCatalog implements IcebergCatalog {
 
     @Override
     public long estimateSize() {
+        List<DataFile> samples = new ArrayList<>();
+        long maxSamples = 100;
+        OUTER:
+        for (Set<DataFile> files : dataFileCache.asMap().values()) {
+            for (DataFile file : files) {
+                samples.add(file);
+                if (samples.size() >= maxSamples) {
+                    break OUTER;
+                }
+            }
+        }
+        double avgDataFileSize = samples.isEmpty() ? 0.0 :
+                (double) Estimator.estimate(samples, 15, samples.size()) / samples.size();
+        long totalDataFiles = dataFileCache.asMap().values()
+                .stream()
+                .mapToLong(Set::size)
+                .sum();
         return Estimator.estimate(tables.asMap()) +
                 Estimator.estimate(databases.asMap()) +
                 Estimator.estimate(icebergProperties) +
-                Estimator.estimate(dataFileCache.asMap()) +
+                (long) (avgDataFileSize * totalDataFiles) +
                 Estimator.estimate(deleteFileCache.asMap()) +
                 Estimator.estimate(metaFileCacheMap) +
                 Estimator.estimate(tableLatestAccessTime) +

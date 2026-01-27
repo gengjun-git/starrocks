@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -970,5 +971,243 @@ class EstimatorTest {
     static class ObjectWithLambda {
         String name;
         Supplier<String> callback;
+    }
+
+    // ==================== Sampled Deduplication Tests ====================
+
+    @Test
+    void testSameObjectReferencedMultipleTimesCountedOnce() {
+        // Create a shared object that will be referenced multiple times
+        SharedObject shared = new SharedObject();
+        shared.value = 42;
+
+        // Create a counting estimator to track how many times estimate is called
+        AtomicInteger estimateCount = new AtomicInteger(0);
+        Estimator.registerCustomEstimator(SharedObject.class, obj -> {
+            estimateCount.incrementAndGet();
+            return 100L;
+        });
+
+        // Create an object that references the same SharedObject multiple times
+        MultiReferenceHolder holder = new MultiReferenceHolder();
+        holder.ref1 = shared;
+        holder.ref2 = shared;
+        holder.ref3 = shared;
+
+        Estimator.estimate(holder);
+
+        // The shared object should only be counted once due to sampled deduplication
+        assertEquals(1, estimateCount.get());
+    }
+
+    @Test
+    void testSameObjectInCollectionCountedOnce() {
+        SharedObject shared = new SharedObject();
+        shared.value = 100;
+
+        AtomicInteger estimateCount = new AtomicInteger(0);
+        Estimator.registerCustomEstimator(SharedObject.class, obj -> {
+            estimateCount.incrementAndGet();
+            return 50L;
+        });
+
+        // Add the same object to a list multiple times
+        List<SharedObject> list = new ArrayList<>();
+        list.add(shared);
+        list.add(shared);
+        list.add(shared);
+        list.add(shared);
+        list.add(shared);
+
+        Estimator.estimate(list);
+
+        // The shared object should only be counted once
+        assertEquals(1, estimateCount.get());
+    }
+
+    @Test
+    void testSameObjectInArrayCountedOnce() {
+        SharedObject shared = new SharedObject();
+        shared.value = 200;
+
+        AtomicInteger estimateCount = new AtomicInteger(0);
+        Estimator.registerCustomEstimator(SharedObject.class, obj -> {
+            estimateCount.incrementAndGet();
+            return 75L;
+        });
+
+        // Create an array with the same object multiple times
+        SharedObject[] array = new SharedObject[] {shared, shared, shared, shared, shared};
+
+        Estimator.estimate(array);
+
+        // The shared object should only be counted once
+        assertEquals(1, estimateCount.get());
+    }
+
+    @Test
+    void testSameObjectInMapKeyAndValueCountedOnce() {
+        SharedObject shared = new SharedObject();
+        shared.value = 300;
+
+        AtomicInteger estimateCount = new AtomicInteger(0);
+        Estimator.registerCustomEstimator(SharedObject.class, obj -> {
+            estimateCount.incrementAndGet();
+            return 60L;
+        });
+
+        // Use the same object as both key and value
+        Map<SharedObject, SharedObject> map = new HashMap<>();
+        map.put(shared, shared);
+
+        Estimator.estimate(map);
+
+        // The shared object should only be counted once
+        assertEquals(1, estimateCount.get());
+    }
+
+    @Test
+    void testSameObjectInNestedStructureCountedOnce() {
+        SharedObject shared = new SharedObject();
+        shared.value = 400;
+
+        AtomicInteger estimateCount = new AtomicInteger(0);
+        Estimator.registerCustomEstimator(SharedObject.class, obj -> {
+            estimateCount.incrementAndGet();
+            return 80L;
+        });
+
+        // Create a nested structure where the same object appears at different levels
+        NestedReferenceHolder nested = new NestedReferenceHolder();
+        nested.direct = shared;
+        nested.holder = new MultiReferenceHolder();
+        nested.holder.ref1 = shared;
+        nested.holder.ref2 = shared;
+        nested.list = new ArrayList<>();
+        nested.list.add(shared);
+        nested.list.add(shared);
+
+        Estimator.estimate(nested);
+
+        // The shared object should only be counted once despite appearing in multiple places
+        assertEquals(1, estimateCount.get());
+    }
+
+    @Test
+    void testDifferentObjectsCountedSeparately() {
+        AtomicInteger estimateCount = new AtomicInteger(0);
+        Estimator.registerCustomEstimator(SharedObject.class, obj -> {
+            estimateCount.incrementAndGet();
+            return 100L;
+        });
+
+        // Create different objects
+        SharedObject obj1 = new SharedObject();
+        obj1.value = 1;
+        SharedObject obj2 = new SharedObject();
+        obj2.value = 2;
+        SharedObject obj3 = new SharedObject();
+        obj3.value = 3;
+
+        MultiReferenceHolder holder = new MultiReferenceHolder();
+        holder.ref1 = obj1;
+        holder.ref2 = obj2;
+        holder.ref3 = obj3;
+
+        Estimator.estimate(holder);
+
+        // Each different object should be counted once
+        assertEquals(3, estimateCount.get());
+    }
+
+    @Test
+    void testCircularReferenceCountedOnce() {
+        AtomicInteger estimateCount = new AtomicInteger(0);
+        Estimator.registerCustomEstimator(CircularRefClass.class, obj -> {
+            estimateCount.incrementAndGet();
+            return 120L;
+        });
+
+        // Create circular reference
+        CircularRefClass obj = new CircularRefClass();
+        obj.self = obj;
+
+        Estimator.estimate(obj);
+
+        // The object should only be counted once even with circular reference
+        assertEquals(1, estimateCount.get());
+    }
+
+    @Test
+    void testMutualReferenceDoesNotCauseInfiniteLoop() {
+        // Create mutual reference: A -> B -> A
+        MutualRefA a = new MutualRefA();
+        MutualRefB b = new MutualRefB();
+        a.refB = b;
+        b.refA = a;
+
+        // Should not hang or throw StackOverflowError due to sampled deduplication
+        long size = Estimator.estimate(a);
+        assertTrue(size > 0);
+    }
+
+    @Test
+    void testSharedObjectInMutualReferenceCountedOnce() {
+        // Use a shared object that both A and B reference
+        SharedObject shared = new SharedObject();
+        shared.value = 999;
+
+        AtomicInteger estimateCount = new AtomicInteger(0);
+        Estimator.registerCustomEstimator(SharedObject.class, obj -> {
+            estimateCount.incrementAndGet();
+            return 100L;
+        });
+
+        // Create mutual reference with shared object
+        MutualRefWithShared a = new MutualRefWithShared();
+        MutualRefWithShared b = new MutualRefWithShared();
+        a.other = b;
+        a.shared = shared;
+        b.other = a;
+        b.shared = shared;  // Same shared object
+
+        Estimator.estimate(a);
+
+        // The shared object should only be counted once
+        assertEquals(1, estimateCount.get());
+    }
+
+    // Helper classes for sampled deduplication tests
+    static class SharedObject {
+        int value;
+    }
+
+    static class MultiReferenceHolder {
+        SharedObject ref1;
+        SharedObject ref2;
+        SharedObject ref3;
+    }
+
+    static class NestedReferenceHolder {
+        SharedObject direct;
+        MultiReferenceHolder holder;
+        List<SharedObject> list;
+    }
+
+    static class CircularRefClass {
+        CircularRefClass self;
+    }
+
+    static class MutualRefA {
+        MutualRefB refB;
+    }
+
+    static class MutualRefB {
+        MutualRefA refA;
+    }
+
+    static class MutualRefWithShared {
+        MutualRefWithShared other;
+        SharedObject shared;
     }
 }
