@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.RandomAccess;
@@ -87,8 +86,16 @@ public class Estimator {
     // Set to track visited objects and avoid counting the same object twice
     private final Set<Object> sampled;
 
+    // Set of classes to ignore during estimation
+    private final Set<Class<?>> ignoreClasses;
+
     public Estimator() {
+        this(Collections.emptySet());
+    }
+
+    public Estimator(Set<Class<?>> ignoreClasses) {
         this.sampled = Collections.newSetFromMap(new IdentityHashMap<>());
+        this.ignoreClasses = ignoreClasses != null ? ignoreClasses : Collections.emptySet();
     }
 
     /**
@@ -165,6 +172,45 @@ public class Estimator {
     }
 
     /**
+     * Estimate the memory size of an object with specified ignore classes.
+     * Objects of ignored classes will not be counted in the estimation.
+     * This is useful when multiple objects reference the same shared object,
+     * and you want to exclude that shared object from the calculation.
+     *
+     * @param obj           the object to estimate
+     * @param ignoreClasses set of classes to ignore during estimation
+     * @return the estimated memory size in bytes
+     */
+    public static long estimate(Object obj, Set<Class<?>> ignoreClasses) {
+        return new Estimator(ignoreClasses).estimateInternal(obj, DEFAULT_MAX_DEPTH, DEFAULT_SAMPLE_SIZE);
+    }
+
+    /**
+     * Estimate the memory size of an object with specified max depth and ignore classes.
+     *
+     * @param obj           the object to estimate
+     * @param maxDepth      the maximum recursion depth
+     * @param ignoreClasses set of classes to ignore during estimation
+     * @return the estimated memory size in bytes
+     */
+    public static long estimate(Object obj, int maxDepth, Set<Class<?>> ignoreClasses) {
+        return new Estimator(ignoreClasses).estimateInternal(obj, maxDepth, DEFAULT_SAMPLE_SIZE);
+    }
+
+    /**
+     * Estimate the memory size of an object with all options specified.
+     *
+     * @param obj           the object to estimate
+     * @param maxDepth      the maximum recursion depth
+     * @param sampleSize    the number of elements to sample for collections/arrays
+     * @param ignoreClasses set of classes to ignore during estimation
+     * @return the estimated memory size in bytes
+     */
+    public static long estimate(Object obj, int maxDepth, int sampleSize, Set<Class<?>> ignoreClasses) {
+        return new Estimator(ignoreClasses).estimateInternal(obj, maxDepth, sampleSize);
+    }
+
+    /**
      * Internal estimation method with sampled set to track visited objects.
      */
     private long estimateInternal(Object obj, int maxDepth, int sampleSize) {
@@ -178,6 +224,11 @@ public class Estimator {
         }
 
         Class<?> clazz = obj.getClass();
+
+        // Skip classes in the ignore set
+        if (ignoreClasses.contains(clazz)) {
+            return 0;
+        }
 
         // Skip classes annotated with @IgnoreMemoryTrack
         if (clazz.isAnnotationPresent(IgnoreMemoryTrack.class)) {
@@ -463,9 +514,9 @@ public class Estimator {
 
     /**
      * Get sample elements from a collection.
-     * For RandomAccess lists (ArrayList, etc.), samples are evenly distributed.
-     * For non-RandomAccess collections (LinkedList, etc.), takes the first N elements
-     * to avoid O(n) traversal for each sample.
+     * Samples are evenly distributed across the collection using a fixed step size.
+     * For RandomAccess lists (ArrayList, etc.), uses index access for efficiency.
+     * For non-RandomAccess collections (LinkedList, etc.), iterates with step skipping.
      *
      * @param collection the collection to sample
      * @param sampleSize the number of elements to sample
@@ -492,14 +543,21 @@ public class Estimator {
                 }
             }
         } else {
-            // For non-RandomAccess collections (LinkedList, etc.), take first N elements
-            // to avoid O(n) traversal for each sample
-            Iterator<?> iterator = collection.iterator();
-            while (iterator.hasNext() && samples.size() < sampleSize) {
-                Object item = iterator.next();
-                if (item != null) {
-                    samples.add(item);
+            // For non-RandomAccess collections, iterate with step skipping
+            int step = size / sampleSize;
+            int index = 0;
+            int nextSampleIndex = 0;
+            for (Object item : collection) {
+                if (index == nextSampleIndex) {
+                    if (item != null) {
+                        samples.add(item);
+                    }
+                    nextSampleIndex += step;
+                    if (samples.size() >= sampleSize) {
+                        break;
+                    }
                 }
+                index++;
             }
         }
 

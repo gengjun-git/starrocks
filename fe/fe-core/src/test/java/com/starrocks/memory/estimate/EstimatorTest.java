@@ -1210,4 +1210,254 @@ class EstimatorTest {
         MutualRefWithShared other;
         SharedObject shared;
     }
+
+    // ==================== Ignore Classes Tests ====================
+
+    @Test
+    void testEstimateWithIgnoreClasses() {
+        // Create an object that contains a SharedData instance
+        ObjectWithSharedData obj = new ObjectWithSharedData();
+        obj.name = "test";
+        obj.sharedData = new SharedData();
+        obj.sharedData.largeArray = new int[1000];
+
+        // Estimate without ignoring - should include SharedData size
+        long sizeWithSharedData = Estimator.estimate(obj);
+
+        // Estimate with ignoring SharedData class
+        Set<Class<?>> ignoreClasses = Set.of(SharedData.class);
+        long sizeWithoutSharedData = Estimator.estimate(obj, ignoreClasses);
+
+        // Size without SharedData should be smaller
+        assertTrue(sizeWithoutSharedData < sizeWithSharedData);
+
+        // The difference should be approximately the size of SharedData
+        long sharedDataSize = Estimator.estimate(obj.sharedData);
+        assertTrue(sharedDataSize > 0);
+    }
+
+    @Test
+    void testEstimateWithIgnoreClassesInNestedObject() {
+        // Create nested structure with shared data at different levels
+        NestedWithSharedData nested = new NestedWithSharedData();
+        nested.name = "outer";
+        nested.sharedData = new SharedData();
+        nested.sharedData.largeArray = new int[500];
+        nested.inner = new ObjectWithSharedData();
+        nested.inner.name = "inner";
+        nested.inner.sharedData = new SharedData();
+        nested.inner.sharedData.largeArray = new int[500];
+
+        // Estimate without ignoring
+        long sizeWithSharedData = Estimator.estimate(nested);
+
+        // Estimate with ignoring SharedData class
+        Set<Class<?>> ignoreClasses = Set.of(SharedData.class);
+        long sizeWithoutSharedData = Estimator.estimate(nested, ignoreClasses);
+
+        // Size without SharedData should be smaller
+        assertTrue(sizeWithoutSharedData < sizeWithSharedData);
+    }
+
+    @Test
+    void testEstimateWithIgnoreClassesInCollection() {
+        // Create a list containing objects with SharedData
+        List<ObjectWithSharedData> list = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            ObjectWithSharedData item = new ObjectWithSharedData();
+            item.name = "item" + i;
+            item.sharedData = new SharedData();
+            item.sharedData.largeArray = new int[100];
+            list.add(item);
+        }
+
+        // Estimate without ignoring
+        long sizeWithSharedData = Estimator.estimate(list);
+
+        // Estimate with ignoring SharedData class
+        Set<Class<?>> ignoreClasses = Set.of(SharedData.class);
+        long sizeWithoutSharedData = Estimator.estimate(list, ignoreClasses);
+
+        // Size without SharedData should be smaller
+        assertTrue(sizeWithoutSharedData < sizeWithSharedData);
+    }
+
+    @Test
+    void testEstimateWithIgnoreClassesInArray() {
+        // Create an array containing SharedData objects
+        SharedData[] array = new SharedData[5];
+        for (int i = 0; i < 5; i++) {
+            array[i] = new SharedData();
+            array[i].largeArray = new int[200];
+        }
+
+        // Estimate without ignoring
+        long sizeWithSharedData = Estimator.estimate(array);
+
+        // Estimate with ignoring SharedData class
+        Set<Class<?>> ignoreClasses = Set.of(SharedData.class);
+        long sizeWithoutSharedData = Estimator.estimate(array, ignoreClasses);
+
+        // Size without SharedData should be only the array shell (header + references)
+        long arrayShellSize = Estimator.ARRAY_HEADER_SIZE + 5 * 4; // 5 references
+        assertEquals(arrayShellSize, sizeWithoutSharedData);
+        assertTrue(sizeWithoutSharedData < sizeWithSharedData);
+    }
+
+    @Test
+    void testEstimateWithEmptyIgnoreClasses() {
+        ObjectWithSharedData obj = new ObjectWithSharedData();
+        obj.name = "test";
+        obj.sharedData = new SharedData();
+        obj.sharedData.largeArray = new int[100];
+
+        // Estimate with empty ignore set should be same as normal estimate
+        long normalSize = Estimator.estimate(obj);
+        long sizeWithEmptyIgnore = Estimator.estimate(obj, Set.of());
+
+        assertEquals(normalSize, sizeWithEmptyIgnore);
+    }
+
+    @Test
+    void testEstimateWithNullIgnoreClasses() {
+        ObjectWithSharedData obj = new ObjectWithSharedData();
+        obj.name = "test";
+        obj.sharedData = new SharedData();
+        obj.sharedData.largeArray = new int[100];
+
+        // Estimate with null ignore set should be same as normal estimate
+        long normalSize = Estimator.estimate(obj);
+        long sizeWithNullIgnore = Estimator.estimate(obj, (Set<Class<?>>) null);
+
+        assertEquals(normalSize, sizeWithNullIgnore);
+    }
+
+    @Test
+    void testEstimateWithIgnoreClassesAndMaxDepth() {
+        NestedWithSharedData nested = new NestedWithSharedData();
+        nested.name = "outer";
+        nested.sharedData = new SharedData();
+        nested.sharedData.largeArray = new int[500];
+        nested.inner = new ObjectWithSharedData();
+        nested.inner.name = "inner";
+        nested.inner.sharedData = new SharedData();
+        nested.inner.sharedData.largeArray = new int[500];
+
+        Set<Class<?>> ignoreClasses = Set.of(SharedData.class);
+
+        // Test with different max depths
+        long depth2 = Estimator.estimate(nested, 2, ignoreClasses);
+        long depth8 = Estimator.estimate(nested, 8, ignoreClasses);
+
+        // Both should be smaller than without ignore
+        long normalDepth8 = Estimator.estimate(nested, 8);
+        assertTrue(depth8 < normalDepth8);
+
+        // Deeper traversal should generally give larger size
+        assertTrue(depth8 >= depth2);
+    }
+
+    @Test
+    void testEstimateWithIgnoreClassesAndSampleSize() {
+        // Create a large list with SharedData
+        List<ObjectWithSharedData> list = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            ObjectWithSharedData item = new ObjectWithSharedData();
+            item.name = "item" + i;
+            item.sharedData = new SharedData();
+            item.sharedData.largeArray = new int[50];
+            list.add(item);
+        }
+
+        Set<Class<?>> ignoreClasses = Set.of(SharedData.class);
+
+        // Test with all parameters
+        long size = Estimator.estimate(list, 8, 5, ignoreClasses);
+
+        // Should be smaller than without ignore
+        long normalSize = Estimator.estimate(list, 8, 5);
+        assertTrue(size < normalSize);
+    }
+
+    @Test
+    void testEstimateWithMultipleIgnoreClasses() {
+        // Create object with multiple types to ignore
+        ObjectWithMultipleShared obj = new ObjectWithMultipleShared();
+        obj.name = "test";
+        obj.sharedData1 = new SharedData();
+        obj.sharedData1.largeArray = new int[100];
+        obj.sharedData2 = new AnotherSharedData();
+        obj.sharedData2.largeList = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            obj.sharedData2.largeList.add("item" + i);
+        }
+
+        // Estimate without ignoring
+        long normalSize = Estimator.estimate(obj);
+
+        // Ignore only SharedData
+        long ignoreOne = Estimator.estimate(obj, Set.of(SharedData.class));
+
+        // Ignore both classes
+        long ignoreBoth = Estimator.estimate(obj, Set.of(SharedData.class, AnotherSharedData.class));
+
+        // Ignoring more classes should result in smaller size
+        assertTrue(ignoreOne < normalSize);
+        assertTrue(ignoreBoth < ignoreOne);
+    }
+
+    @Test
+    void testIgnoreClassesWithSharedReference() {
+        // This is the main use case: multiple objects reference the same shared object
+        SharedData shared = new SharedData();
+        shared.largeArray = new int[1000];
+
+        ObjectWithSharedData obj1 = new ObjectWithSharedData();
+        obj1.name = "obj1";
+        obj1.sharedData = shared;
+
+        ObjectWithSharedData obj2 = new ObjectWithSharedData();
+        obj2.name = "obj2";
+        obj2.sharedData = shared; // Same reference
+
+        // Put them in a container
+        List<ObjectWithSharedData> container = new ArrayList<>();
+        container.add(obj1);
+        container.add(obj2);
+
+        // Estimate with ignoring SharedData - useful when we want to calculate
+        // the size without the shared data that's counted elsewhere
+        Set<Class<?>> ignoreClasses = Set.of(SharedData.class);
+        long sizeWithoutShared = Estimator.estimate(container, ignoreClasses);
+
+        // Verify SharedData is not counted
+        long normalSize = Estimator.estimate(container);
+        assertTrue(sizeWithoutShared < normalSize);
+    }
+
+    // Helper classes for ignore classes tests
+    static class SharedData {
+        int[] largeArray;
+    }
+
+    static class AnotherSharedData {
+        List<String> largeList;
+    }
+
+    static class ObjectWithSharedData {
+        String name;
+        SharedData sharedData;
+    }
+
+    static class NestedWithSharedData {
+        String name;
+        SharedData sharedData;
+        ObjectWithSharedData inner;
+    }
+
+    static class ObjectWithMultipleShared {
+        String name;
+        SharedData sharedData1;
+        AnotherSharedData sharedData2;
+    }
 }
